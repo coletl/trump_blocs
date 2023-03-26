@@ -1,0 +1,113 @@
+---
+title: "MAIN RACE BLOC ANALYSIS: ACS density, CCES vote choice and validated turnout"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 2
+    toc_float: no
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+  sprintf("Updated: %s.",
+          format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+  sprintf("Working directory: `%s`.", getwd()),
+  sep = "\n\n"
+)
+
+tictoc::tic()
+```
+
+
+Reads:
+
+  - data/census_clean.fst
+  - data/cces_clean.rds
+
+Writes:
+
+  - data/vbdf_race_cces.rds
+  - docs/figs/race_cces_arrange
+
+# Setup
+```{r packages, warning=FALSE, message=FALSE}
+# devtools::install_github("coletl/blocs")
+library(blocs)
+
+library(fst)
+library(dplyr)
+
+library(ggplot2)
+# library(ggpubr)
+```
+
+## Covariate to define blocs
+```{r}
+vb_tag <- "acs_cces"
+covariate <- "race"
+```
+
+## Load data
+```{r load data}
+# ACS
+density <- read_fst("data/census_clean.fst",
+                    columns = c(covariate, "year", "age", "weight"),
+                    as.data.table = TRUE)
+
+# CCES
+turnout <-
+  votechoice <- readRDS("data/cces_clean.rds")
+
+resamples <- c(density = 0, turnout = 1e4, vote = 1e4)
+```
+
+```{r child_setup, child = "code/vb_child_setup.Rmd"}
+```
+
+# Voting bloc analysis
+See preprocessing scripts for notes on data coverage.
+Use validated turnout for comparison against CPS turnout numbers.
+
+```{r}
+turnout$voted <- turnout$voted_valid
+votechoice$voted <- votechoice$voted_valid
+votechoice$vote_pres3 <- votechoice$vote_pres3_valid
+```
+
+For some reason, CCES analysis fails with more cores.
+```{r}
+cores <- 1
+```
+
+```{r child_analysis, child = "code/vb_child_analysis.Rmd"}
+```
+
+
+# Plots {.tabset}
+
+```{r child = "code/vb_child_plots.Rmd"}
+```
+
+
+# Export
+```{r}
+# acs-cces-cces
+saveRDS(vbdf, "data/vbdf_race_acc.rds")
+```
+
+
+# Timing
+```{r}
+tictoc::toc()
+```

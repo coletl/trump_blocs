@@ -1,0 +1,111 @@
+---
+title: "Race bloc analysis with CCES vote choice and validated turnout"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 2
+    toc_float: no
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+  sprintf("Updated: %s.",
+          format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+  sprintf("Working directory: `%s`.", getwd()),
+  sep = "\n\n"
+)
+
+tictoc::tic()
+```
+
+
+Reads:
+
+  - data/cces_clean.rds
+
+Writes:
+
+  - data/vbdf_race_cces.rds
+  - docs/figs/race_cces_arrange
+
+# Setup
+```{r packages, warning=FALSE, message=FALSE}
+# devtools::install_github("coletl/blocs")
+library(blocs)
+
+library(fst)
+library(dplyr)
+
+library(ggplot2)
+# library(ggpubr)
+```
+
+## Covariate to define blocs
+```{r}
+vb_tag <- "cces"
+covariate <- "race"
+```
+
+## Load data
+```{r load data}
+# CCES
+density <-
+  turnout <-
+  votechoice <- readRDS("data/cces_clean.rds")
+
+resamples <- 1e4
+```
+
+```{r child_setup, child = "code/vb_child_setup.Rmd"}
+```
+
+# Voting bloc analysis
+See preprocessing scripts for notes on data coverage.
+Use validated turnout for comparison against CPS/ANES turnout numbers.
+
+```{r}
+turnout$voted <- turnout$voted_valid
+votechoice$voted      <- votechoice$voted_valid
+votechoice$vote_pres3 <- votechoice$vote_pres3_valid
+
+density$weight <- votechoice$rvweight
+turnout$weight <- votechoice$rvweight
+votechoice$weight <- votechoice$rvweight
+```
+
+For some reason, CCES analysis fails with more cores.
+```{r}
+cores <- 1
+```
+
+```{r child_analysis, child = "code/vb_child_analysis.Rmd"}
+```
+
+
+# Plots {.tabset}
+
+```{r child = "code/vb_child_plots.Rmd"}
+```
+
+
+# Export
+```{r}
+saveRDS(vbdf, "data/vbdf_race_cces.rds")
+```
+
+
+# Timing
+```{r}
+tictoc::toc()
+```

@@ -1,0 +1,32 @@
+## Bootstrap parameters
+Number of resamples and number of cores for `mcMap()`.
+```{r}
+set.seed(575)
+
+cores <- 4
+```
+
+## Subset data to voting-age population
+```{r}
+density    <- filter(density,    age >= 18)
+turnout    <- filter(turnout,    age >= 18)
+votechoice <- filter(votechoice, age >= 18)
+```
+
+
+## Subset to recent years
+
+```{r}
+yrs <- seq(1976, 2020, 4)
+
+density    <- filter(density, year %in% yrs)
+turnout    <- filter(turnout, year %in% yrs)
+votechoice <- filter(votechoice, year %in% yrs)
+```
+
+## Drop missing values in voting bloc variable
+```{r}
+density    <- tidylog::drop_na(density, all_of(covariate))
+turnout    <- tidylog::drop_na(turnout, all_of(covariate))
+votechoice <- tidylog::drop_na(votechoice, all_of(covariate))
+```

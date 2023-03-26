@@ -1,0 +1,689 @@
+---
+title: "Prepare ANES 1952--2020 voting blocs"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+    sprintf("Updated: %s.",
+            format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+    sprintf("Working directory: `%s`.", getwd()),
+    sep = "\n\n"
+)
+```
+
+
+Reads:
+
+- data/anes_timeseries_cdf/anes_timeseries_cdf_rawdata.txt
+- data/anes_waves/*
+
+Writes:
+
+- data/anes_clean.rds
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+rm(list = ls())
+
+library(haven)
+library(dplyr)
+library(data.table)
+
+source("code/functions.R")
+```
+
+## Load data
+
+```{r}
+anes <- fread("data/anes_timeseries_cdf_csv_20211118/anes_timeseries_cdf_csv_20211118.csv")
+```
+
+# Renaming
+
+Select variables to work with.
+```{r}
+varlabs <-
+    tribble(~ variable, ~ label,
+            "VCF0017", "mode",
+            "VCF0004",  "year",
+            # "VCF0006",  "uid"
+            "VCF0012",  "form",
+            "VCF0006a",  "resp_id",
+            "VCF0006",   "respid2",
+            # Combined-sample weights
+            "VCF0009z",  "weight",
+            "VCF0901b", "state",
+            "VCF0901a", "fips",
+
+            "VCF0105b",  "race",
+            "VCF0107",   "hisp_origin",
+            "VCF0101",    "age",
+            # "VCF0102",    "age_bin",
+            # "VCF0103",    "birth_cohort",
+            "VCF0104",    "gender",
+            "VCF0140",    "educ",
+            "VCF0111",    "urban",
+            "VCF0112",    "region",
+            "VCF0113",    "south",
+            "VCF0114",    "faminc",
+            "VCF0301",    "pid7",
+            "VCF0303",    "pid3",
+            "VCF0305",    "party_strength",
+            "VCF0803",    "ideo7",
+            # "VCF0310",    "election_interest",
+            "VCF0704",    "vote_pres",
+            # "VCF0707",    "vote_house",
+            # "VCF0708",    "vote_senate",
+            # "VCF9025",    "vote_gov",
+            "VCF0703",    "turnout",
+
+            ##### Picked from the google sheet based on availability
+            "VCF0206", "therm_black",
+
+            "VCF9039", "resent_slavery",
+            "VCF9040", "resent_favors",
+            "VCF9041", "resent_try",
+            "VCF9042", "resent_deserve",
+
+            ##### For comparison with MWK
+            "VCF0253", "therm_feminist",
+            "VCF0217", "therm_hispanic",
+            "VCF0232", "therm_gay",
+
+            "VCF9269", "therm_christian", ## WATCH OUT! for some reason these are coded
+            "VCF9267", "therm_muslim",    ## like 2020, with negative values,
+                                          ## not values >97, indicating NA.
+            "VCF0207", "therm_white",
+
+            "VCF0218", "therm_party_dem",
+            "VCF0224", "therm_party_rep",
+
+            # "VCF0813", "blacks_position_changed",
+            # "VCF0814", "civil_rights_fast",
+            # "VCF0815", "segregation",
+            # "VCF0816", "school_integr",
+            # "VCF0817", "busing",
+            # "VCF0818", "fair_jobshousing",
+            # "VCF0819", "open_housing",
+            # "VCF0820", "whites_segr",
+            # "VCF0821", "blacks_desgr",
+
+            "VCF0830", "blacks_lessaid",
+            # "VCF0860", "nbrhd_race_comp",
+            # "VCF0867", "affact1",
+            # "VCF0867a", "affact2",
+            # "VCF0879",  "incr_immigr",
+
+    )
+```
+
+
+```{r}
+anes <- dplyr::select(anes, varlabs$variable)
+```
+
+Rename variables.
+```{r}
+setnames(anes, varlabs$variable, varlabs$label)
+```
+
+# Recoding
+
+```{r}
+anes_recode <-
+    mutate(anes,
+           source = "ANES",
+           mode = recode(mode, `0` = "FTF", `1` = "phone pre", `2` = "phone post",
+                         `3` = "phone", `4` = "online"),
+           year = year,
+           age  = ifelse(age < 17, NA, age),
+           region = recode(region,
+                           `1` = "Northeast", `2` = "Midwest",
+                           `3` = "South", `4` = "West"),
+           south = as.numeric(state %in%
+                                  # Confederacy
+                                  c("TN", "VA", "NC", "SC", "FL",
+                                    "GA", "AL", "MS", "LA", "AR", "TX",
+                                    # Schickler adds these
+                                    "OK", "KY")),
+           urban = recode(urban, `1` = "urban", `2` = "suburban", `3` = "rural",
+                          `0` = NA_character_),
+           gender = recode_factor(gender, `1` = "male", `2` = "female",
+                                  `3` = "other", .default = NA_character_),
+           ideo7  = ifelse(ideo7 %in% c(0, 9), NA, ideo7),
+           educ = recode_factor(educ,
+                                `1` = "HS or less", `2` = "HS or less",
+                                `3` = "some college", `4` = "college",
+                                .default = NA_character_),
+           race = recode_factor(race,
+                                `1` = "white", `2` = "black", `3` = "hispanic", `4` = "other",
+                                `9` = NA_character_, `0` = NA_character_),
+           # income, ANES-specific bins
+           # 1. 0 to 16 percentile
+           # 2. 17 to 33 percentile
+           # 3. 34 to 67 percentile
+           # 4. 68 to 95 percentile
+           # 5. 96 to 100 percentile
+           # 0. DK; NA; refused to answer; no Pre IW INAP. question not used
+           fincome_anes = recode(faminc,
+                                 `1` = "0-16ptile",
+                                 `2` = "17-33ptile",
+                                 `3` = "34-67ptile",
+                                 `4` = "68-95ptile",
+                                 `5` = "96-100ptile",
+                                 .default = NA_character_),
+
+           hisp_origin = recode(hisp_origin,
+                                `1` = "mexican", `2` = "puerto rican",
+                                `3` = "other", `4` = "other", .default = NA_character_),
+
+           # RECODED FROM PID7 TO MATCH CCES, SEE BELOW
+           # pid3 = recode(pid3,
+           #               `1` = "dem", `2` = "indep", `3` = "rep",
+           #               .default = "other/not sure"),
+           pid7 = recode(pid7,
+                         `1` = "strong dem", `2` = "weak dem", `3` = "indep dem",
+                         `4` = "indep",
+                         `5` = "indep rep", `6` = "weak rep", `7` = "strong rep",
+                         .default = "other/not sure"),
+           party_strength = recode(party_strength,
+                                   `1` = "independent", `2` = "lean independent",
+                                   `3` = "weak partisan", `4` = "strong partisan",
+                                   `0` = NA_character_),
+           turnout = recode(turnout,
+                            `1` = "unregistered", `2` = "did not vote",
+                            `3` = "voted", `0` = NA_character_),
+           vote_pres = recode(vote_pres,
+                              `1` = "dem", `2` = "rep", `3` = "third",
+                              `0` = NA_character_),
+
+           therm_feminist  = ifelse(therm_feminist < 0, NA, therm_feminist),
+           therm_muslim    = ifelse(therm_muslim < 0, NA, therm_muslim),
+           therm_christian = ifelse(therm_christian < 0, NA, therm_christian),
+
+           # weird, but it's according to the codebook. 97+ was coded as 97.
+           therm_black     = ifelse(therm_black      %in% 98:99, NA, therm_black),
+           therm_hispanic  = ifelse(therm_hispanic   %in% 98:99, NA, therm_hispanic),
+           therm_gay       = ifelse(therm_gay        %in% 98:99, NA, therm_gay),
+           therm_white     = ifelse(therm_white      %in% 98:99, NA, therm_white),
+           therm_party_dem = ifelse(therm_party_dem  %in% 98:99, NA, therm_party_dem),
+           therm_party_rep = ifelse(therm_party_rep  %in% 98:99, NA, therm_party_rep),
+
+           blacks_lessaid = ifelse(blacks_lessaid %in% c(9, 0), NA, blacks_lessaid),
+
+
+           # Create indicator variables
+           white = as.numeric(race == "white"),
+           black = as.numeric(race == "black"),
+           hispanic = as.numeric(race == "hispanic"),
+           # Unregistered voters coded as did not vote (0)
+           voted = as.numeric(turnout == "voted"),
+           vote_pres_dem = as.numeric(vote_pres == "dem"),
+           vote_pres_rep = as.numeric(vote_pres == "rep"),
+           vote_pres3    = case_when(vote_pres == "dem" ~ -1L,
+                                     vote_pres == "rep" ~  1L,
+				     vote_pres == "third" ~ 0L,
+                                     turnout   != "voted" ~  NA_integer_)
+    )
+```
+
+# Code racial resentment
+```{r}
+anes_recode <-
+  mutate(anes_recode,
+         resent_slavery = ifelse(resent_slavery %in% 8:9 | resent_slavery < 0,
+                                 NA, resent_slavery),
+         resent_favors = ifelse(resent_favors %in% 8:9 | resent_favors < 0,
+                                NA, resent_favors),
+         resent_try     = ifelse(resent_try     %in% 8:9 | resent_try < 0,
+                                 NA, resent_try),
+         resent_deserve = ifelse(resent_deserve %in% 8:9 | resent_deserve < 0,
+                                 NA, resent_deserve))
+```
+
+REVERSE the try-harder and favors questions. Strongly Agree (1) to "Blacks Must Try Harder to Succeed" becomes a (5)---high resentment.
+```{r}
+anes_recode <-
+  mutate(anes_recode,
+         resent_try = 1 + max(resent_try, na.rm = TRUE) - resent_try,
+         resent_favors = 1 + max(resent_favors, na.rm = TRUE) - resent_favors)
+```
+
+
+```{r}
+rr_cols <-
+ c("resent_slavery", "resent_favors",
+   "resent_try", "resent_deserve")
+
+# z-scores averaged across questions
+anes_recode[!is.na(resent_slavery),
+            racialres_zsc := gen_std_scale(.SD),
+             .SDcols = rr_cols
+             ]
+```
+
+## Check racial resentment coding
+
+Higher values of resent_slavery => greater disagreement => higher resentment.
+```{r}
+stopifnot(
+  anes_recode[ , cor(racialres_zsc, resent_slavery, use = "pa")] > 0
+  )
+```
+
+Resentment negatively correlated with warm feelings toward Blacks.
+```{r}
+stopifnot(
+  anes_recode[ , cor(racialres_zsc, therm_black, use = "pa")]  < 0L
+)
+```
+
+
+
+# Add white identity from 2016, 2020 files
+
+ 1) How important is being white to your identity?
+ 2) How important is it that whites work together to change laws that are unfair to whites
+ 3) How likely is it that many whites are unable to find a job because employers are hiring minorities instead?
+ 4) How much discrimination is there in the United States today against whites?
+
+```{r}
+white_codes <-
+  tribble(
+    ~ var_anes16, ~ var_anes20, ~ name,
+    "V162327"   ,   "V202499x", "white_import",
+    "V162316"   ,   "V202483" , "white_work",
+    "V162317"   ,   "V202487" , "white_job",
+    "V162360"   ,   "V202530" , "white_discrim",
+    "V160001"   ,   "V200001",  "respid2"
+  )
+
+anes16 <- read_dta("data/anes_waves/anes2016/anes_timeseries_2016_Stata13.dta",
+                   col_select = white_codes$var_anes16)
+anes16$year <- 2016
+
+setnames(anes16, white_codes$var_anes16, white_codes$name)
+
+anes20 <- read_dta("data/anes_waves/anes2020/anes_timeseries_2020_stata_20210719.dta",
+                   col_select = white_codes$var_anes20)
+anes20$year <- 2020
+
+setnames(anes20, white_codes$var_anes20, white_codes$name)
+```
+
+
+```{r}
+anes1620 <-
+  rbind(anes20 %>% mutate(across(everything(), zap_labels)),
+        anes16 %>% mutate(across(everything(), zap_labels))) %>%
+  mutate(
+         # white ID questions all coded so that 1 implies higher on ID scale
+         # 1. white ID extremely important
+         white_import   = ifelse( ! white_import %in% 1:5, NA, white_import) %>%
+                              { (5:1)[.] },
+
+         # 1. working together extremely important
+         white_work     = ifelse( ! white_work %in% 1:5, NA, white_work) %>%
+                              { (5:1)[.] },
+
+         # 1. no job extremely likely
+         white_job      = ifelse( ! white_job %in% 1:5, NA, white_job) %>%
+                              { (5:1)[.] },
+
+         # 1. a great deal
+         white_discrim  = ifelse( ! white_discrim %in% 1:5, NA, white_discrim) %>%
+                              { (5:1)[.] })
+```
+
+Merge in the coded white ID variables
+```{r}
+white_id_cols <- white_codes$name %>% setdiff("respid2")
+
+setDT(anes1620)
+anes_recode[anes1620,
+            (white_id_cols) := mget(paste0("i.", white_id_cols)),
+            on = c("year", "respid2")
+            ]
+```
+
+
+# Add recalled vote choice
+Columns for past vote choice are not in the ANES cumulative file.
+
+```{r}
+last_vote_cols <-
+  tribble(
+    ~ var_anes12,        ~ var_anes16, ~ var_anes20,  ~ name,
+    "caseid",               "V160001",    "V200001",  "respid2",
+    "interest_voted2008",   "V161005",    "V201102",  "last_voted",
+    "interest_whovote2008", "V161006",    "V201103",  "last_vote_pres"
+  )
+```
+
+
+```{r}
+anes12 <- read_dta("data/anes_waves/anes2012/anes_timeseries_2012.dta",
+                   col_select = last_vote_cols$var_anes12)
+anes12$year <- 2012
+setnames(anes12, last_vote_cols$var_anes12, last_vote_cols$name)
+```
+
+```{r}
+anes16 <- read_dta("data/anes_waves/anes2016/anes_timeseries_2016_Stata13.dta",
+                   col_select = last_vote_cols$var_anes16)
+anes16$year <- 2016
+setnames(anes16, last_vote_cols$var_anes16, last_vote_cols$name)
+```
+
+The 2020 ANES split the sample and asked different recalled turnout questions. The "revised" question, V201101, reminded people that their past turnout could be verified.
+```{r}
+anes20 <- read_dta("data/anes_waves/anes2020/anes_timeseries_2020_stata_20210719.dta",
+                   col_select = c(last_vote_cols$var_anes20, "V201101"))
+anes20$year <- 2020
+setnames(anes20, last_vote_cols$var_anes20, last_vote_cols$name)
+
+setnames(anes20, "V201101", "last_voted_rev")
+```
+
+```{r}
+anes_vote <-
+  list(anes12, anes16, anes20) %>%
+  lapply(zap_labels) %>%
+  bind_rows() %>%
+  mutate(last_voted = as.numeric(last_voted == 1),
+         last_vote_pres = recode(last_vote_pres,
+                                 `1` = "dem", `2` = "rep", `5` = "third",
+                                 .default = NA_character_)
+         )
+```
+
+
+```{r}
+setDT(anes_vote)
+
+lvcn <- c("last_voted", "last_vote_pres")
+anes_recode[anes_vote,
+            (lvcn) := mget(paste0("i.", lvcn)),
+            on = c("year", "respid2")]
+```
+
+
+# Construct white identity scale {.tabset}
+
+```{r}
+# z-scores averaged across questions within year
+anes_recode[!is.na(white_import),
+             white_idscale := gen_std_scale(.SD),
+             .SDcols = white_codes$name
+             ]
+```
+
+
+## Checks
+```{r}
+stopifnot(
+  anes_recode[grep("rep", pid7), mean(white_idscale, na.rm = TRUE)] >
+    anes_recode[grep("dem", pid7), mean(white_idscale, na.rm = TRUE)]
+)
+
+stopifnot(
+  anes_recode[year == 2020,
+              weighted.mean(white_idscale, w = weight, na.rm = TRUE)] <
+    anes_recode[year == 2016,
+                weighted.mean(white_idscale, w = weight, na.rm = TRUE)]
+)
+
+anes_recode[year %in% 2016:2020][ ,
+            .(mean_white_id = weighted.mean(white_idscale,
+                                            w = weight, na.rm = TRUE),
+             .N),
+            by = .(race, year)]
+```
+
+```{r}
+anes_recode[ , ..white_id_cols] %>% cor(use = "pa")
+```
+
+
+## Cross tabs
+```{r}
+anes_recode[year %in% 2016:2020,
+            table(year, white_import, useNA = "always") %>%
+              prop.table() %>% round(3)
+            ]
+anes_recode[year %in% 2016:2020,
+            table(year, white_work, useNA = "always") %>%
+              prop.table() %>% round(3)
+            ]
+anes_recode[year %in% 2016:2020,
+            table(year, white_job, useNA = "always") %>%
+              prop.table() %>% round(3)
+            ]
+anes_recode[year %in% 2016:2020,
+            table(year, white_discrim, useNA = "always") %>%
+              prop.table() %>% round(3)
+            ]
+```
+
+## Race breakdown
+Missingness by race and year.
+```{r}
+anes_recode[year %in% 2016:2020,
+            lapply(.SD, function(x) mean(is.na(x))),
+            .SDcols = white_id_cols,
+            by = .(year, race)
+            ]
+```
+Mean by race and year
+```{r}
+anes_recode[year %in% 2016:2020,
+            lapply(.SD, function(x) weighted.mean(x, w = weight, na.rm = T)),
+            .SDcols = white_id_cols,
+            by = .(year, race)
+            ]
+```
+
+
+## Density plots
+```{r}
+library(ggplot2)
+
+ggplot(anes_recode %>% filter(year %in% 2016:2020)) +
+  geom_density(aes(x = white_idscale, color = race == "white")) +
+  facet_grid(year ~ .)
+```
+
+
+
+
+
+# Age bins
+Copied from Will's CCES code: age groups in 10-year bands, except under 20 is counted w/ 20s
+```{r}
+mfloor <- function(x,base){
+    base * floor(x/base)
+}
+
+anes_recode[ , age_bin := mfloor(age, 10)]
+anes_recode[ , age_bin5 := mfloor(age, 5)]
+anes_recode[age < 20, c("age_bin", "age_bin5") := 20]
+```
+
+
+# Missing turnout?
+Some years have respondents who reported vote choice but no turnout. That could be a few D.C. residents. In 1972, ANES used a Form II with no turnout question. Both Form I and II are nationally representative, each with 50% of the total 1972 sample. I drop Form II respondents entirely.
+
+```{r}
+setDT(anes_recode)
+
+anes_recode[ ,
+             .(num_err = sum(!is.na(vote_pres) & is.na(voted)),
+               prop_err = mean(!is.na(vote_pres) & is.na(voted))),
+             by = .(year, form)
+             ][num_err > 0]
+
+anes_recode[year == 1972, table(form, turnout)]
+```
+
+```{r}
+anes_recode <- anes_recode[year != 1972 | form == 1]
+
+anes_recode[ ,
+             .(num_err = sum(!is.na(vote_pres) & is.na(voted)),
+               prop_err = mean(!is.na(vote_pres) & is.na(voted))),
+             by = .(year)
+             ][num_err > 0]
+```
+
+
+# Will's recoding of ANES income
+```{r warning = FALSE, message = FALSE}
+# for compatability with Will's code
+anes <- anes_recode
+source("code/preprocessing/anes_income.R")
+
+anes <-
+  group_by(anes, year) %>%
+  mutate(faminc_quin =
+           ntile(inc_midpoint, 5) %>%
+           recode_factor(`1` = "1st",
+                         `2` = "2nd",
+                         `3` = "3rd",
+                         `4` = "4th",
+                         `5` = "5th"
+                         ),
+         faminc_terc =
+           ntile(inc_midpoint, 3) %>%
+           recode_factor(`1` = "1st", `2` = "2nd", `3` = "3rd")
+         )
+```
+
+# Make pid3 from pid7
+
+Very strange discrepancy between ANES and CCES versions of the 3-level party ID variable. Creating our own out of the 7-leveled version, which is more consistent across surveys.
+
+```{r}
+anes <-
+  mutate(anes,
+         pid3 = recode_factor(pid7,
+                              `strong dem`     = "dem",
+                              `weak dem`       = "dem",
+                              `indep dem`      = "dem",
+                              `independent`    = "indep",
+                              `other/not sure` = "other/not sure",
+                              `indep rep`      = "rep",
+                              `weak rep`       = "rep",
+                              `strong rep`     = "rep",
+                              )
+         )
+
+```
+
+# Create party-group animosity
+These variables copy MWK's method of aggregating respondents' FT ratings of party-aligned groups.
+```{r warn = FALSE, message = FALSE, results = "hide"}
+anes <-
+  mutate(anes,
+         demgroup_animosity =
+           cbind(therm_black, therm_hispanic,
+                   therm_gay, therm_muslim) %>%
+             rowMeans() %>%
+           # Flip so that warm feelings => lower animosity
+           `*`(-1) %>%
+           # Rescale range to lie between 0 and 1
+           scales::rescale(to = c(0, 1), na.rm = TRUE),
+
+         repgroup_animosity =
+           cbind(therm_white, therm_christian) %>%
+           rowMeans() %>%
+           # Flip so that warm feelings => lower animosity
+           `*`(-1) %>%
+           # Rescale range to lie between 0 and 1
+           scales::rescale(to = c(0, 1), na.rm = TRUE),
+         )
+```
+
+
+
+Select columns for voting bloc analysis.
+```{r}
+anes_vb <-
+    dplyr::select(anes,
+                  mode, year, resp_id, weight,
+                  region, south, urban,
+                  race, hisp_origin, gender,
+                  fincome_anes, faminc_quin, faminc_terc,
+                  age, age_bin, educ,
+                  pid3, pid7, party_strength, ideo7,
+                  racialres = racialres_zsc,
+
+                  # Nearly raw, just recoded missing values as NA
+                  resent_slavery,
+                  resent_favors,
+                  resent_try,
+                  resent_deserve,
+
+                  white_idscale,
+                  white_import,
+                  white_work,
+                  white_job,
+                  white_discrim,
+
+                  therm_muslim,
+                  therm_christian,
+                  therm_black,
+                  therm_hispanic,
+                  therm_gay,
+                  therm_white,
+                  therm_feminist,
+                  therm_party_dem,
+                  therm_party_rep,
+
+                  demgroup_animosity,
+                  repgroup_animosity,
+
+                  voted, vote_pres_rep, vote_pres_dem,
+                  vote_pres3,
+
+                  last_voted, last_vote_pres,
+
+                  source)
+```
+
+
+# Checks
+```{r}
+setDT(anes_vb)
+therm_cols <- grep("therm", names(anes_vb), value = TRUE)
+
+for(col in therm_cols) assert_that(all(between(na.omit(anes_vb[[col]]), 0, 100)))
+```
+
+
+```{r}
+assert_that(all(between(na.omit(anes_vb[["ideo7"]]), 1, 7)))
+```
+
+
+# Export
+```{r}
+anes_vb[ , year := as.character(year)]
+saveRDS(anes_vb, "data/anes_clean.rds")
+```

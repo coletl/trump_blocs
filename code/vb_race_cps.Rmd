@@ -1,0 +1,106 @@
+---
+title: "Race bloc analysis with CPS density and turnout, ANES vote choice"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 2
+    toc_float: no
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+  sprintf("Updated: %s.",
+          format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+  sprintf("Working directory: `%s`.", getwd()),
+  sep = "\n\n"
+)
+
+tictoc::tic()
+```
+
+Reads:
+
+  - data/cps_clean.fst
+  - data/anes_clean.rds
+
+Writes:
+
+  - data/vbdf_race_cps.rds
+  - docs/figs/race_cps_arrange.pdf
+
+# Setup
+```{r packages, warning=FALSE, message=FALSE}
+# devtools::install_github("coletl/blocs")
+library(blocs)
+
+library(fst)
+library(dplyr)
+
+library(ggplot2)
+# library(ggpubr)
+```
+
+
+## Covariate to define blocs
+```{r}
+vb_tag <- "cps"
+covariate <- "race"
+```
+
+## Load data
+
+Remove respondents with weight = 0.
+
+```{r load data}
+# CPS
+density <-
+  turnout <-
+  read_fst("data/cps_clean.fst",
+           columns = c(covariate, "year", "weight", "voted", "age"),
+           as.data.table = TRUE) %>%
+  filter(weight > 0)
+
+# ANES
+votechoice <- readRDS("data/anes_clean.rds")
+
+resamples <- 1e4
+```
+
+
+```{r child_setup, child = "code/vb_child_setup.Rmd"}
+```
+
+# Voting bloc analysis
+See preprocessing scripts for notes on data coverage.
+
+```{r child_analysis, child = "code/vb_child_analysis.Rmd"}
+```
+
+
+# Plots {.tabset}
+
+```{r child = "code/vb_child_plots.Rmd"}
+```
+
+
+# Export
+```{r}
+saveRDS(vbdf, "data/vbdf_race_cps.rds")
+```
+
+
+# Timing
+```{r}
+tictoc::toc()
+```

@@ -1,0 +1,427 @@
+---
+title: "Prepare CCES 2006--2018"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+  sprintf("Updated: %s.",
+          format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+  sprintf("Working directory: `%s`.", getwd()),
+  sep = "\n\n"
+)
+```
+
+
+Reads:
+
+  - data/cces/cumulative_2006-2020.Rds
+
+Writes:
+
+  - data/cces_clean.rds
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+rm(list = ls())
+
+library(haven)
+library(stringr)
+library(dplyr)
+library(data.table)
+library(tidylog)
+library(labelled)
+library(questionr)
+library(assertthat)
+library(assertr)
+
+source("code/functions.R")
+```
+
+
+## Load data
+
+```{r}
+cces_full <- readRDS("data/cces/cumulative_2006-2020.Rds")
+```
+
+Select columns: year, state, all covariates, turnout, vote choice,
+```{r}
+cces <-
+  cces_full %>%
+  filter(year %in% seq(2008, 2020, 4)) %>%
+  dplyr::select(year, state = st, weight, rvweight, case_id, citizen,
+                race, gender, fincome_cces = faminc, educ, age,
+                pid3, pid7, ideo5,
+                voted_pres_party
+                ) %>%
+  as.data.table()
+```
+
+
+# Recode columns
+
+```{r}
+# Print label codes
+select_if(cces, haven::is.labelled) %>%
+  lapply(function(x) attr(x, "label"))
+```
+
+
+```{r}
+cces <-
+  mutate(cces,
+         source = "CCES",
+         case_id = as.character(case_id),
+         year = year,
+         citizen = as.numeric(citizen == 1),
+         south = as.numeric(state %in%
+                              c("TN", "VA", "NC", "SC", "FL",
+                                "GA", "AL", "MS", "LA", "AR", "TX",
+                                # Schickler adds these
+                                "OK", "KY")),
+         race  = recode(race,
+                        `1` = "white", `2` = "black", `3` = "hispanic",
+                        .default = "other"),
+         gender = recode(gender,
+                         `1` = "male", `2` = "female",
+                         .default = NA_character_),
+         educ  = recode(educ,
+                        `1` = "HS or less", `2` = "HS or less",
+                        `3` = "some college", `4` = "some college",
+                        `5` = "college", `6` = "college",
+                        .default = NA_character_),
+         fincome_cces = as.factor(fincome_cces),
+         fincome_ordinal = as.numeric(fincome_cces),
+         # RECODED FROM PID7, SEE BELOW
+         # pid3 = recode(pid3,
+         #               `1` = "dem",
+         #               `2` = "rep",
+         #               `3` = "indep",
+         #               .default = "other/not sure"
+         # ),
+         pid7 = recode(pid7,
+                       `1` = "strong dem",
+                       `2` = "weak dem",
+                       `3` = "indep dem",
+                       `4` = "independent",
+                       `5` = "indep rep",
+                       `6` = "weak rep",
+                       `7` = "strong rep",
+                       .default = "other/not sure"),
+         ideo5 = recode(ideo5,
+                        `1` = "very liberal", `2` = "liberal", `3` = "moderate",
+                        `4` = "conservative", `5` = "very conservative",
+                        .default = "other/not sure"),
+         vote_pres = recode(voted_pres_party,
+                            Democratic = "dem", Republican = "rep",
+                            `Other Candidate` = "other", .default = NA_character_)
+  ) %>% 
+  filter(citizen == 1, age >= 17)
+```
+
+
+Copied from Will's CCES code: age groups in 10-year bands, except under 20 is counted w/ 20s
+```{r}
+mfloor <- function(x,base){
+  base * floor(x/base)
+}
+
+cces <-
+  mutate(cces,
+         age_bin = mfloor(age, 10),
+         age_bin = ifelse(age < 20, 20, age_bin))
+```
+
+
+# Merge in reported turnout {.tabset}
+I can't reconstruct a reported turnout from the cumulative file because the cumulative CCES has collapsed two categories of uncertain turnout: 1) reported vote but not validated by voter file and 2) turnout in the voter file not reported in the survey.
+
+
+## 2008 turnout
+```{r}
+cces08 <-
+  haven::read_dta("data/cces/cces_2008_common.dta") %>%
+  dplyr::select(
+    case_id = V100,
+    turnout_report = CC403,
+    turnout_valid  = vote_gen08) %>%
+
+  mutate(case_id = as.character(case_id),
+         year  = 2008,
+         voted_report = as.numeric(turnout_report == 5 & !is.na(turnout_report)),
+         voted_valid  = as.numeric(turnout_valid == 1)
+         )
+```
+
+```{r}
+setDT(cces08)
+
+cces[cces08,
+     `:=`(
+       voted_report = i.voted_report,
+       voted_valid  = i.voted_valid
+     ),
+     on = c("year", "case_id")
+     ]
+```
+
+
+## 2012 turnout
+
+```{r}
+cces12 <-
+  haven::read_dta("data/cces/CCES12_Common_VV.dta",
+                  col_select = c("V101", "e2012g", "CC401", "CC410a",
+                                 "CC422a", "CC422b")
+  ) %>%
+  mutate(
+    year = 2012,
+    case_id =  as.character(V101),
+    voted_report = as.numeric(CC401 == 5 & !is.na(CC401)),
+    # not "" or "MatchedNoVote"
+    voted_valid  = as.numeric(e2012g %in%
+                                c("Polling", "Early",
+                                  "Absentee", "UnknownMethod", "Mail")),
+    rr_overcame = 6 - as.numeric(CC422a),
+    rr_slavery  = as.numeric(CC422b),
+    racialres2  = cbind(rr_slavery, rr_overcame) %>%
+            apply(2, scale) %>%
+            { rowSums(.) / 2 }
+  )
+
+```
+
+```{r}
+setDT(cces12)
+
+cces[cces12,
+     `:=`(
+       voted_report = i.voted_report,
+       voted_valid  = i.voted_valid,
+       racialres2      = i.racialres2
+     ),
+     on = c("year", "case_id")
+     ]
+```
+
+## 2016 turnout
+```{r}
+cces16 <-
+  haven::read_dta("data/cces/CCES16_Common_OUTPUT_Feb2018_VV.dta",
+                  col_select = c("V101",
+                                 "CC16_401", "CL_E2016GVM",
+                                 "CC16_410a")
+                  ) %>%
+
+  mutate(
+    year = 2016,
+    case_id = as.character(V101),
+
+    voted_report =  as.numeric(CC16_401 == 5 & !is.na(CC16_401)),
+    # not "" or "unknown"
+    voted_valid  =  as.numeric(CL_E2016GVM %in%
+                                 c("polling", "unknown", "mail",
+                                   "earlyVote", "absentee"))
+  )
+
+```
+
+
+```{r}
+setDT(cces16)
+
+cces[cces16,
+     `:=`(
+       voted_report = i.voted_report,
+       voted_valid  = i.voted_valid
+     ),
+     on = c("year", "case_id")
+     ]
+```
+
+## 2020 turnout
+```{r}
+cces20 <-
+  haven::read_dta("data/cces/CES20_Common_OUTPUT_vv.dta",
+                  col_select = c(case_id = "caseid",
+                                 voted_report = "CC20_401",
+                                 vote_method  = "CL_2020gvm",
+                                 vote_pres = "CC20_364b",
+                                 "commonweight"
+                                 )
+                  ) %>%
+
+  mutate(
+    year = 2020,
+    case_id = as.character(caseid),
+    # 5 -> definitely voted
+    voted_report = as.numeric(CC20_401 == 5 & !is.na(CC20_401)),
+    # not "" or "unknown"
+    voted_valid  = as.numeric(as_factor(CL_2020gvm, levels = "label") %in%
+                                c("polling", "unknown", "mail",
+                                   "earlyVote", "absentee"))
+  )
+```
+
+
+```{r}
+setDT(cces20)
+
+cces[cces20,
+     `:=`(
+       voted_report = i.voted_report,
+       voted_valid  = i.voted_valid
+     ),
+     on = c("year", "case_id")
+     ]
+```
+
+
+# Code numeric vote choice
+```{r}
+cces <-
+  mutate(cces,
+         vote_pres_rep = as.numeric(vote_pres == "rep"),
+         vote_pres_dem = as.numeric(vote_pres == "dem"),
+
+         vote_pres3_report    = case_when(vote_pres == "dem" ~ -1L,
+                                          vote_pres == "rep" ~  1L,
+					  vote_pres == "other" ~ 0L,
+                                          voted_report != 1 ~  NA_integer_),
+         vote_pres3_valid    = case_when(vote_pres == "dem" ~ -1L,
+                                         vote_pres == "rep" ~  1L,
+					 vote_pres == "other" ~ 0L,
+                                         voted_valid != 1 ~  NA_integer_))
+```
+
+
+# Code income quintile
+```{r}
+cces <-
+  group_by(cces, year) %>%
+  mutate(faminc_quin = ntile(fincome_ordinal, 5) %>%
+           recode_factor(`1` = "1st",
+                         `2` = "2nd",
+                         `3` = "3rd",
+                         `4` = "4th",
+                         `5` = "5th"
+           )
+  ) %>% ungroup()
+```
+
+# Remake pid3 from pid7
+
+Very strange discrepancy between ANES and CCES versions of the 3-level party ID variable. Creating our own out of the 7-leveled version, which is more consistent across surveys.
+
+```{r}
+cces <-
+  mutate(cces,
+         pid3 = recode_factor(pid7,
+                              `strong dem`     = "dem",
+                              `weak dem`       = "dem",
+                              `indep dem`      = "dem",
+                              `independent`    = "indep",
+                              `other/not sure` = "other/not sure",
+                              `indep rep`      = "rep",
+                              `weak rep`       = "rep",
+                              `strong rep`     = "rep",
+                              )
+         )
+
+```
+
+
+
+# Checks
+```{r}
+wmean <-
+    function(x, na.rm = TRUE, w)
+        wtd.mean(x = x, na.rm = na.rm, weights = w)
+
+# Presidential years only
+assert(cces, in_set(seq(2008, 2020, 4)), year) %>%
+    # complete, categ. race
+  assert(in_set(c("black", "white", "hispanic", "other")), race) %>%
+  invisible()
+```
+
+
+```{r}
+setDT(cces)
+
+assert_that(
+  cces[ , setequal(seq(2008, 2020, 4), unique(year))],
+
+  # demographics -----
+  # count should be white > black > hispanic
+  cces[ , wmean(race == "white", w = weight) >
+                wmean(race == "black", w = weight) &
+              #
+              # 2008 had 2000 Black and 2000 Hispanic respondents...
+              wmean(race == "black", w = weight) >=
+                wmean(race == "hispanic", w = weight),
+            by = year]$V1 %>% all(),
+
+  cces[ , between(wmean(gender == "female", w = weight), 0.45, 0.55)]
+  )
+```
+
+
+No absurd election shares.
+```{r}
+group_assert(data = cces[voted_valid == 1L], by = "year",
+             grp_expr = expr(   .(dem_vshare = wmean(vote_pres_dem, w = weight))  ),
+             assertion = expr(   between(dem_vshare, 0.44, 0.53))   )
+
+group_assert(cces[voted_valid == 1L], by = "year",
+             grp_expr = expr(    .(rep_vshare = wmean(vote_pres_rep, w = weight))  ),
+             assertion = expr(    between(rep_vshare, 0.38, 0.48))    )
+
+# third party
+group_assert(cces[voted_valid == 1L], by = "year",
+             grp_expr = expr(   .(third_vshare = wmean(vote_pres_rep + vote_pres_dem == 0,
+                                                       w = weight))),
+             assertion = expr(    between(third_vshare, 0, 0.07))    )
+
+# turnout
+group_assert(cces, by = "year",
+             grp_expr = expr(   .(turnout = wmean(voted_report == 1L, w = weight))   ),
+             assertion = expr(    between(turnout, 0.60, 0.80))    )
+
+group_assert(cces, by = "year",
+             grp_expr = expr(   .(turnout = wmean(voted_valid == 1L, w = weight))   ),
+             assertion = expr(    between(turnout, 0.4, 0.65))    )
+```
+
+
+# Export
+
+Drop auxiliary columns.
+
+```{r}
+cces <- dplyr::select(cces, any_of(names(cces)),
+                          faminc_quin, racialres2) %>%
+            mutate_if(haven::is.labelled, as.character)
+
+setDT(cces)
+cces[ , year := as.character(year)]
+
+saveRDS(cces, "data/cces_clean.rds")
+```

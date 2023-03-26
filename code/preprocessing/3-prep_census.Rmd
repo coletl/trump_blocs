@@ -1,0 +1,220 @@
+---
+title: "Prepare Census data: Decennial 1950--1970, ACS 1-year 2005--2018"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+    sprintf("Updated: %s.",
+            format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+    sprintf("Working directory: `%s`.", getwd()),
+    sep = "\n\n"
+)
+```
+
+
+Reads:
+
+- data/ipums-census/usa_00006.csv
+
+Writes:
+
+- data/census_voteblocs.fst
+- data/ipums-census/census_sample.csv
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+rm(list = ls())
+
+library(dplyr)
+library(data.table)
+```
+
+## Load data
+```{r}
+census <- fread("data/ipums-census/usa_00006.csv")
+```
+
+# Recode variables
+
+```{r}
+census[ ,
+        `:=`(
+            year   = as.character(YEAR),
+            statefips = coler::lz_pad(STATEFIP, 2),
+            weight = PERWT / 100,
+            urban = recode(METRO, "1" = "rural", "2" = "urban", "3" = "suburban",
+                           .default = NA_character_),
+
+            gender = recode(SEX, `1` = "male", `2` = "female",
+                            .default = NA_character_),
+            age = as.numeric(AGE),
+            race   = recode(RACE, "1" = "white", "2" = "black",
+                            .default = NA_character_),
+            hisp_origin = recode(HISPAN, "1" = "mexican", "2" = "puerto rican",
+                                 "3" = "cuban", "4" = "other",
+                                 .default = NA_character_),
+            educ = as.numeric(EDUCD) %>%
+            {
+                case_when(. < 64                   ~ "HS or less",
+                          # Includes associate's degree
+                          . %in% 65:99                  ~ "some college",
+                          # Includes 4+ years of college
+                          . %in% c(100:116)  ~ "college")
+            },
+
+            region = REGION %>%
+              {
+                case_when(. %in% 11:13  ~ "Northeast",
+                          . %in% 21:23  ~ "Midwest",
+                          . %in% 31:34  ~ "South",
+                          . %in% 41:43  ~ "West",
+                          . %in% 91:99  ~ NA_character_)
+              }
+        )
+        ] %>% 
+  filter(age >= 18)
+```
+
+```{r}
+# Recode missing values NOW for proper quantiles
+census[ ,
+        fincome := case_when(FTOTINC %in%
+                                 c(9999998, 9999999) ~ NA_integer_,
+                             # net loss
+                             # FTOTINC == -1      ~ 0,
+                             TRUE               ~ FTOTINC)]
+```
+
+```{r}
+census[ ,
+        `:=`(fincome_anes = cut(fincome,
+                                labels = c("0-16ptile", "17-33ptile", "34-67ptile",
+                                           "68-95ptile", "96-100ptile"),
+                                breaks = quantile(fincome,
+                                                  probs = c(0, .16, .33, .67,
+                                                            .95, 1),
+                                                  na.rm = TRUE),
+                                include.lowest = TRUE),
+             faminc_quin = ntile(fincome, 5) %>%
+               recode_factor(`1` = "1st",
+                             `2` = "2nd",
+                             `3` = "3rd",
+                             `4` = "4th",
+                             `5` = "5th"
+               )
+        ),
+        by = .(year)
+]
+```
+
+
+```{r}
+# Recode Hispanic from white
+census[HISPAN %in% 1:4, race := "hispanic"]
+```
+
+
+Subset to B/W/H.
+```{r}
+census <- dplyr::filter(census, race %in% c("black", "white", "hispanic"))
+```
+
+## Age bin
+Copied from Will's CCES code: age groups in 10-year bands, except under 20 is counted w/ 20s
+```{r}
+mfloor <- function(x,base){
+    base * floor(x/base)
+}
+
+census[ , age_bin := mfloor(age, 10)]
+census[age < 20, age_bin := 20]
+```
+
+
+
+# Add South dummy
+```{r}
+fips <- fastLink::statefips
+
+setDT(fips, key = "statefips")
+
+fips[ , south := as.numeric(state %in%
+                                c("TN", "VA", "NC", "SC", "FL",
+                                  "GA", "AL", "MS", "LA", "AR", "TX",
+                                  # Schickler adds these
+                                  "OK", "KY"))
+      ]
+```
+
+
+```{r}
+census[fips,
+       c("south", "state") := .(i.south, i.state),
+       on = "statefips"
+       ]
+```
+
+```{r}
+sources <-
+    tribble( ~ SAMPLE, ~ source,
+             202001, "ACS",
+             201801, "ACS",
+             201601, "ACS",
+             201401, "ACS",
+             201201, "ACS",
+             201007, "Census",
+             201001, "ACS",
+             200801, "ACS",
+             200601, "ACS",
+             200401, "ACS",
+             200201, "ACS",
+             200001, "Census",
+             199001, "Census",
+             198001, "Census",
+             197002, "Census",
+             197001, "Census",
+             196002, "Census",
+             195001, "Census")
+
+setDT(sources, key = "source")
+
+census[sources,
+       source := i.source,
+       on = "SAMPLE"]
+```
+
+
+# Export
+```{r}
+keep <- grep("[a-z]", names(census), value = TRUE)
+census_out <- dplyr::select(census, all_of(keep))
+setDT(census_out)
+
+skimr::skim(census_out)
+```
+
+```{r}
+fst::write_fst(census_out, "data/census_clean.fst")
+
+# Sample to work with locally
+fwrite(census_out %>% group_by(year) %>%
+           sample_frac(0.001),
+       "data/ipums-census/census_sample.csv")
+```

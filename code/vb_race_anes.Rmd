@@ -1,0 +1,100 @@
+---
+title: "Race bloc analysis with ANES data only"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 2
+    toc_float: no
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+  sprintf("Updated: %s.",
+          format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+  sprintf("Working directory: `%s`.", getwd()),
+  sep = "\n\n"
+)
+
+tictoc::tic()
+```
+
+
+Reads:
+
+  - data/anes_clean.rds
+
+Writes:
+
+  - data/vbdf_race_anes.rds
+  - docs/figs/race_anes_arrange
+
+# Setup
+```{r packages, warning=FALSE, message=FALSE}
+# devtools::install_github("coletl/blocs")
+library(blocs)
+
+library(fst)
+library(dplyr)
+
+library(ggplot2)
+# library(ggpubr)
+```
+
+## Covariate to define blocs
+```{r}
+vb_tag <- "anes"
+covariate <- "race"
+```
+
+## Load data
+```{r load data}
+density <-
+  turnout <-
+  votechoice <- readRDS("data/anes_clean.rds")
+
+resamples <- 1e4
+```
+
+
+```{r child_setup, child = "code/vb_child_setup.Rmd"}
+```
+
+# Voting bloc analysis
+See preprocessing scripts for notes on data coverage.
+
+
+```{r child_analysis, child = "code/vb_child_analysis.Rmd"}
+```
+
+# Plots {.tabset}
+
+```{r child = "code/vb_child_plots.Rmd"}
+```
+
+
+# Export
+```{r}
+saveRDS(vbdf, "data/vbdf_race_anes.rds")
+```
+
+
+# Timing
+```{r}
+tictoc::toc()
+```
+
+```{r}
+resamples
+```

@@ -1,0 +1,81 @@
+Use `blocs::vb_discrete()`, one year/election at a time.
+
+Construct a data.frame with three columns: density, turnout, votechoice.
+Each row is a year of survey data, and each column holds a data.frame corresponding to the column name.
+
+```{r}
+data_list <-
+    list("density" = density, "turnout" = turnout,
+         "votechoice" = votechoice) %>%
+    lapply(\(df) split(df, df$year))
+
+# Keep years common to all data sets
+same_yrs <- Reduce(intersect, lapply(data_list, names))
+
+data_df <-
+    tibble(
+        year    = same_yrs,
+        density = data_list[["density"]][same_yrs],
+        turnout = data_list[["turnout"]][same_yrs],
+        votechoice = data_list[["votechoice"]][same_yrs]
+    )
+```
+
+```{r vb_discrete}
+lvbdf <-
+    parallel::mclapply(data_df$year, mc.cores = cores,
+             \(yr) {
+                 dens_yr <- filter(data_df, year == yr)[["density"]][[1]]
+                 turn_yr <- filter(data_df, year == yr)[["turnout"]][[1]]
+                 vote_yr <- filter(data_df, year == yr)[["votechoice"]][[1]]
+
+                 vb_discrete(
+                     data_density = filter(dens_yr, weight > 0),
+                     data_turnout = filter(turn_yr, weight > 0),
+                     data_vote    = filter(vote_yr, weight > 0),
+                     indep = covariate,
+                     dv_turnout = "voted",
+                     dv_vote3 = "vote_pres3",
+                     boot_iters = resamples,
+                     weight = "weight"
+                     )
+                    }
+            )
+
+names(lvbdf) <- data_df$year
+```
+
+
+```{r}
+save.image(sprintf("data/race_%s_wrkspc.rda", vb_tag))
+```
+
+Not resampling the ACS, so grab the original-sample results and use them to populate NA prob estimates in resampled rows. Then compute net rep with the original prob. mass estimates.
+```{r}
+if("original" %in% lvbdf[[1]]$resample){
+    
+    lvbdf <- 
+        lapply(lvbdf,
+               \(tmp_df){
+                   orig <- 
+                       filter(tmp_df, resample == "original") %>% 
+                       select(all_of(c(covariate, "prob")))
+                   tmp_df$prob <- NULL
+                   
+                   out <- left_join(tmp_df, orig, by = covariate) %>% 
+                       mutate(net_rep = prob * pr_turnout * (pr_voterep - pr_votedem))
+                   
+                   return(out)
+               }
+        )
+    
+}
+
+vbdf <- 
+    lapply(lvbdf, vb_summary, 
+           estimates = c("prob", "pr_turnout", 
+                         "pr_voterep", "pr_votedem", "net_rep"), 
+           na.rm = TRUE) %>% 
+    bind_rows(.id = "year")
+```
+

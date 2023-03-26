@@ -1,0 +1,98 @@
+Run continuous voting bloc analysis.
+```{r}
+lvbdf <- 
+    anes_sub %>% 
+    split(., .$year) %>%
+    lapply(
+        
+        vb_continuous,
+        
+        indep = "racialres", dv_turnout = "voted",
+        dv_vote3 = "vote_pres3",
+        weight = "weight",
+        
+        # Same range to set estimation points for all years
+        min_val = min_rr,
+        max_val = max_rr,
+        
+        boot_iters = boot_iters, tolerance = 1e-4
+    )
+```
+
+Rescale by white population.
+```{r}
+sub_rescale <- 
+    count(anes_sub, year, wt = weight) %>% 
+    left_join(pop_count, by = "year", suffix = c("_sub", "_pop")) %>% 
+    mutate(subgrp_prob = n_sub / n_pop,
+           n_sub = NULL, n_pop = NULL)
+
+sub_vbdf <-
+    bind_rows(lvbdf, .id = "year") %>% 
+    left_join(sub_rescale, by = "year") %>% 
+    # Scale density, net Republican votes estimates by prop. white
+    mutate(
+        across(
+            matches("^prob|^net_rep"),
+            ~ .x * subgrp_prob,
+            .names = "{.col}_rescale"
+        )
+    )
+```
+
+```{r}
+stopifnot(nrow(sub_vbdf) == 100 * boot_iters * n_distinct(anes_sub$year))
+
+# Assert that the same racialres values were used for each year
+for(yr in unique(anes_sub$year))
+    stopifnot(
+        setequal(filter(sub_vbdf, year == 2012)$racialres,
+                 filter(sub_vbdf, year == yr)$racialres
+        )
+
+    )
+```
+
+
+Calculate year-to-year differences.
+
+```{r}
+sub_vbdiff <-
+    vb_difference(vbdf = sub_vbdf, estimates = "net_rep_rescale",
+                  sort_col = "year")
+```
+
+
+Integrate results within quintile.
+
+```{r}
+sub_vbdiff <-
+    mutate(sub_vbdiff,
+           racialres5 =
+               cut(racialres, include.lowest = TRUE,
+                   breaks =
+                       c(
+                           min(racialres, na.rm = TRUE),
+                           rr_2012_quintile,
+                           max(racialres, na.rm = TRUE)
+                       ),
+                   labels = FALSE)
+           )
+
+sub_sum <-
+    sub_vbdiff %>% 
+    split(., .$comp) %>% 
+    lapply(
+        function(comp_df)
+            vb_summary(comp_df, type = "binned", 
+                       bin_col = "racialres5",
+                       estimates = c("diff_net_rep_rescale"),
+                       na.rm = TRUE)
+    ) %>% 
+    bind_rows(.id = "comp")
+```
+
+```{r}
+robust_results[[sub_tag]] <- sub_sum
+```
+

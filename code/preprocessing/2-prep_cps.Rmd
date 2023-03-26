@@ -1,0 +1,206 @@
+---
+title: "Prepare CPS 1964 -- 2020"
+author:
+  - "Cole Tanigawa-Lau"
+date: ""
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include = FALSE}
+knitr::opts_knit$set(root.dir = here::here())
+```
+
+```{r about, echo=FALSE, results = "asis"}
+cat(
+    sprintf("Updated: %s.",
+            format(Sys.time(), "%b %d, %Y at %H:%M:%S", usetz = TRUE)),
+    sprintf("Working directory: `%s`.", getwd()),
+    sep = "\n\n"
+)
+```
+
+
+Reads:
+
+- data/ipums-cps/cps_00008.csv
+
+Writes:
+
+- data/cps_clean.rds
+
+# Setup
+
+```{r packages, warning=FALSE, message=FALSE}
+rm(list = ls())
+
+library(fst)
+library(dplyr)
+library(data.table)
+```
+
+
+## Load data
+
+```{r}
+cps <- fread("data/ipums-cps/cps_00008.csv")
+cps[ , source := "CPS"]
+```
+
+# Recode variables
+```{r}
+cps[ ,
+     `:=`(
+         year   = as.character(YEAR),
+         cpsid  = CPSIDP,
+         weight = VOSUPPWT,
+         statefips = coler::lz_pad(STATEFIP, 2),
+         citizen = ifelse(YEAR < 1994, 1L, as.numeric(CITIZEN != 5)),
+         urban = recode(METRO, "1" = "rural", "2" = "urban", "3" = "suburban",
+                        .default = NA_character_),
+         race   = case_when(RACE %in%
+                                 c(200, 801, 805:807, 810:811, 814, 816, 818) ~ "black",
+                            RACE == 100                                       ~ "white",
+                            TRUE                                              ~ "other"),
+         age = as.integer(AGE),
+         gender = recode(SEX, `1` = "male", `2` = "female",
+                         .default = NA_character_),
+         faminc = FAMINC,
+
+         # https://cps.ipums.org/cps-action/downloads/extract_files/cps_00003.xml#EDUC
+         educ = as.numeric(EDUC) %>%
+         {
+             case_when(. <= 73                        ~ "HS or less",
+                       # Includes associate's degree
+                       . %in% 74:110                       ~ "some college",
+                       # Includes 4+ years of college
+                       . %in% c(111:125) ~ "college")
+         },
+
+         region = REGION %>%
+           {
+            case_when(. %in% 11:13  ~ "Northeast",
+                     . %in% 21:23  ~ "Midwest",
+                     . %in% 31:34  ~ "South",
+                     . %in% 41:43  ~ "West",
+                     . %in% 91:99  ~ NA_character_)
+           },
+
+         voted = recode(VOTED,
+                        "01" = 0L, "02" = 1L, .default = NA_integer_)
+     )
+     ] %>% 
+  # filter to CVAP
+  filter(citizen == 1, age >= 18)
+```
+
+Copied from Will's CCES code: age groups in 10-year bands, except under 20 is counted w/ 20s
+```{r}
+mfloor <- function(x,base){
+    base * floor(x/base)
+}
+
+cps[ , age_bin := mfloor(age, 10)]
+cps[age < 20, age_bin := 20]
+```
+
+
+```{r}
+cps[!is.na(faminc),
+    # Matching ANES cut points
+    `:=`(fincome = faminc,
+         faminc_quin = ntile(faminc, 5) %>%
+           recode_factor(`1` = "1st",
+                         `2` = "2nd",
+                         `3` = "3rd",
+                         `4` = "4th",
+                         `5` = "5th"
+           ),
+         faminc_terc =
+           ntile(faminc, 3) %>%
+           recode_factor(`1` = "1st", `2` = "2nd", `3` = "3rd")
+    ), by = .(year, source)
+    ]
+```
+
+```{r}
+cps[!is.na(voted) & !is.na(faminc_quin),
+    stopifnot(.N > 2e4), by = year]
+```
+
+
+
+## Hispanic origin
+From CPS-IPUMS codebook:
+
+99999999 = N.I.U. (Not in Universe).
+1968-1975: -9999997 (Loss of $9999 or more dollars).
+
+
+```{r}
+cps[HISPAN %in% 100:612 & race %in% c("white", "other"),
+    race := "hispanic"]
+
+cps[ , hisp_origin :=
+         case_when(HISPAN %in% 100:109 ~ "mexican",
+                   HISPAN == 200       ~ "puerto rican",
+                   HISPAN == 300       ~ "cuban",
+                   HISPAN %in% 600:612 ~ "other",
+                   # Fewer than 2000 respondents total
+                   # HISPAN == 400       ~ "dominican",
+                   # HISPAN == 500       ~ "salvadoran",
+                   TRUE ~ NA_character_)
+     ]
+```
+
+# Add South dummy
+```{r}
+fips <- fastLink::statefips
+
+setDT(fips, key = "statefips")
+
+fips[ , south := as.numeric(state %in%
+                                c("TN", "VA", "NC", "SC", "FL",
+                                  "GA", "AL", "MS", "LA", "AR", "TX",
+                                  # Schickler adds these
+                                  "OK", "KY"))
+      ]
+```
+
+
+```{r}
+cps[fips,
+    c("south", "state") := .(i.south, i.state),
+    on = "statefips"
+    ]
+```
+
+# Missing weights...
+
+
+For some reason, CPS is missing weights before 1976.
+```{r}
+cps[is.na(weight) & year < 1976, weight := 1]
+```
+
+
+# Export
+```{r}
+keep <- grep("[a-z]", names(cps), value = TRUE)
+cps_out <- dplyr::select(cps, all_of(keep))
+setDT(cps_out)
+
+skimr::skim(cps_out)
+```
+
+
+```{r}
+write_fst(cps_out, "data/cps_clean.fst")
+```
