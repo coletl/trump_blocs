@@ -1,8 +1,8 @@
 # README
 
-Analysis code for https://osf.io/preprints/socarxiv/c9fkg.
+Analysis code for [Measuring the Contribution of Voting Blocs to Election Outcomes](https://osf.io/preprints/socarxiv/c9fkg).
 
-The GitHub repository does not include any data files. Raw and preprocessed data are available on the [Harvard Dataverse](https://doi.org/10.7910/DVN/2ZV5X2). Unfortunately, due to Dataverse restrictions on file sizes, we are unable to post the raw or cleaned Census data. If you require these files, please send a message to coletl@stanford.edu, and we will transfer them to you. You may also download raw survey data directly from the U.S. Census, CPS, ANES, and CCES websites.
+The GitHub repository does not include any data files. Please download the data [here](https://www.dropbox.com/scl/fo/5rh657wqziobgl0baqnm9/h?dl=0&rlkey=046s9n53v5iwk4jbrvo7f1lqp).
 
 Files in `code/preprocessing/` prepare the raw data for analysis, writing clean files to `data/`. Each `code/vb_*.Rmd` file runs a voting bloc analysis with results in the corresponding HTML file. The file `code/race_sens.Rmd` examines sensitivity to the choice of surveym, and outputs the LaTeX-formatted tables that appear in the paper.
 
