@@ -2,9 +2,9 @@
 
 Analysis code for [Measuring the Contribution of Voting Blocs to Election Outcomes](https://osf.io/preprints/socarxiv/c9fkg).
 
-The GitHub repository does not include any data files. Please download the data [here](https://www.dropbox.com/scl/fo/5rh657wqziobgl0baqnm9/h?dl=0&rlkey=046s9n53v5iwk4jbrvo7f1lqp).
+The GitHub repository does not include any data files. Please download the analysis data sets [here](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/3LWMM9). You'll find the raw data files [here](https://www.dropbox.com/scl/fo/5rh657wqziobgl0baqnm9/h?dl=0&rlkey=046s9n53v5iwk4jbrvo7f1lqp).
 
-Files in `code/preprocessing/` prepare the raw data for analysis, writing clean files to `data/`. Each `code/vb_*.Rmd` file runs a voting bloc analysis with results in the corresponding HTML file. The file `code/race_sens.Rmd` examines sensitivity to the choice of surveym, and outputs the LaTeX-formatted tables that appear in the paper.
+Files in `code/preprocessing/` prepare the raw data for analysis, writing clean files to `data/`. Each `code/vb_*.Rmd` file runs a voting bloc analysis with results in the corresponding HTML file. The file `code/race_sens.Rmd` examines sensitivity to the choice of survey, and outputs the LaTeX-formatted tables that appear in the paper. The script `code/numbers-in-main-text.R` returns the remaining estimates in the paper.
 
 Please be sure to install the package dependecies before running any scripts in this repositiory.
 
