@@ -21,4 +21,4 @@ install.packages("blocs")
 devtools::install_github("coletl/blocs")
 ```
 
-We ran all preprocessing and analysis code on Stanford's high-performance computing cluster. Please adjust the file paths and number of CPU cores according to your system. Wherever possible, we used relative file paths so that you should be able to run most scripts without any edits. Just be sure to open `trump_blocs.Rproj` in RStudio, or otherwise set this repository as your working directory.
+We ran all preprocessing and analysis code using R (version 4.1.2, 64-bit Linux) on Stanford's high-performance computing cluster. Please adjust the file paths and number of CPU cores according to your system. Wherever possible, we used relative file paths so that you should be able to run most scripts without any edits. Just be sure to open `trump_blocs.Rproj` in RStudio, or otherwise set this repository as your working directory.
