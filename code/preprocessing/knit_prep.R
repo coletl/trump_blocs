@@ -1,10 +1,4 @@
 # Knit preprocessing documents
-
-# Install package dependencies 
-renv::restore()
-
-
-# Scripts executed from project directory
 rmarkdown::render("code/preprocessing/1-prep_anes.Rmd")
 rmarkdown::render("code/preprocessing/2-prep_cps.Rmd")
 rmarkdown::render("code/preprocessing/3-prep_census.Rmd")

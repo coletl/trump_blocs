@@ -66,7 +66,7 @@ Select columns: year, state, all covariates, turnout, vote choice,
 cces <-
   cces_full %>%
   filter(year %in% seq(2008, 2020, 4)) %>%
-  dplyr::select(year, state = st, weight, rvweight, case_id, citizen,
+  dplyr::select(year, state = st, weight = weight_post, weight_pre = weight, case_id, citizen,
                 race, gender, fincome_cces = faminc, educ, age,
                 pid3, pid7, ideo5,
                 voted_pres_party
@@ -90,6 +90,7 @@ cces <-
          source = "CCES",
          case_id = as.character(case_id),
          year = year,
+	 weight = ifelse(is.na(weight), weight_pre, weight),
          citizen = as.numeric(citizen == 1),
          south = as.numeric(state %in%
                               c("TN", "VA", "NC", "SC", "FL",

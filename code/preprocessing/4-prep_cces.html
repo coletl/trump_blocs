@@ -2790,7 +2790,7 @@ div.tocify {
 </div>
 
 
-<p>Updated: Feb 24, 2023 at 23:45:18 PST.</p>
+<p>Updated: Sep 20, 2023 at 22:16:32 PDT.</p>
 <p>Working directory: <code>/home/groups/jgrimmer/trump_blocs</code>.</p>
 <p>Reads:</p>
 <ul>
@@ -2822,7 +2822,7 @@ source(&quot;code/functions.R&quot;)</code></pre>
 <pre class="r"><code>cces &lt;-
   cces_full %&gt;%
   filter(year %in% seq(2008, 2020, 4)) %&gt;%
-  dplyr::select(year, state = st, weight, rvweight, case_id, citizen,
+  dplyr::select(year, state = st, weight = weight_post, weight_pre = weight, case_id, citizen,
                 race, gender, fincome_cces = faminc, educ, age,
                 pid3, pid7, ideo5,
                 voted_pres_party
@@ -2836,7 +2836,7 @@ source(&quot;code/functions.R&quot;)</code></pre>
 <pre class="r"><code># Print label codes
 select_if(cces, haven::is.labelled) %&gt;%
   lapply(function(x) attr(x, &quot;label&quot;))</code></pre>
-<pre><code>## select_if: dropped 9 variables (year, state, weight, rvweight, case_id, …)</code></pre>
+<pre><code>## select_if: dropped 9 variables (year, state, weight, weight_pre, case_id, …)</code></pre>
 <pre><code>## $citizen
 ##     Citizen Non-Citizen 
 ##           1           2 
@@ -2879,6 +2879,7 @@ select_if(cces, haven::is.labelled) %&gt;%
          source = &quot;CCES&quot;,
          case_id = as.character(case_id),
          year = year,
+     weight = ifelse(is.na(weight), weight_pre, weight),
          citizen = as.numeric(citizen == 1),
          south = as.numeric(state %in%
                               c(&quot;TN&quot;, &quot;VA&quot;, &quot;NC&quot;, &quot;SC&quot;, &quot;FL&quot;,
@@ -2929,7 +2930,8 @@ select_if(cces, haven::is.labelled) %&gt;%
 ## Caused by warning in `recode.haven_labelled()`:
 ## ! The type of .x has been changed and value labels attributes have been lost.
 ## ℹ Run `dplyr::last_dplyr_warnings()` to see the 3 remaining warnings.</code></pre>
-<pre><code>## mutate: converted &#39;case_id&#39; from integer to character (0 new NA)</code></pre>
+<pre><code>## mutate: changed 63,607 values (30%) of &#39;weight&#39; (63607 fewer NA)</code></pre>
+<pre><code>##         converted &#39;case_id&#39; from integer to character (0 new NA)</code></pre>
 <pre><code>##         changed 3,409 values (2%) of &#39;citizen&#39; (0 new NA)</code></pre>
 <pre><code>##         converted &#39;race&#39; from integer to character (0 new NA)</code></pre>
 <pre><code>##         converted &#39;gender&#39; from integer to character (0 new NA)</code></pre>
