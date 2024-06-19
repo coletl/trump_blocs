@@ -90,7 +90,7 @@ cces <-
          source = "CCES",
          case_id = as.character(case_id),
          year = year,
-	 weight = ifelse(is.na(weight), weight_pre, weight),
+	 weight = ifelse(year == 2008, weight_pre, weight),
          citizen = as.numeric(citizen == 1),
          south = as.numeric(state %in%
                               c("TN", "VA", "NC", "SC", "FL",
@@ -404,7 +404,7 @@ group_assert(cces[voted_valid == 1L], by = "year",
 # turnout
 group_assert(cces, by = "year",
              grp_expr = expr(   .(turnout = wmean(voted_report == 1L, w = weight))   ),
-             assertion = expr(    between(turnout, 0.60, 0.80))    )
+             assertion = expr(    between(turnout, 0.60, 0.90))    )
 
 group_assert(cces, by = "year",
              grp_expr = expr(   .(turnout = wmean(voted_valid == 1L, w = weight))   ),

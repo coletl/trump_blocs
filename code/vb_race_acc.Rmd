@@ -83,6 +83,10 @@ Use validated turnout for comparison against CPS turnout numbers.
 turnout$voted <- turnout$voted_valid
 votechoice$voted <- votechoice$voted_valid
 votechoice$vote_pres3 <- votechoice$vote_pres3_valid
+
+# Use pre-wave weights because turnout validation was performed
+# regardless of whether there is a complete  post-wave response
+turnout$weight <- turnout$weight_pre
 ```
 
 For some reason, CCES analysis fails with more cores.

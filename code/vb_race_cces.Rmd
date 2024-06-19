@@ -79,9 +79,11 @@ turnout$voted <- turnout$voted_valid
 votechoice$voted      <- votechoice$voted_valid
 votechoice$vote_pres3 <- votechoice$vote_pres3_valid
 
-density$weight <- votechoice$rvweight
-turnout$weight <- votechoice$rvweight
-votechoice$weight <- votechoice$rvweight
+density$weight <- votechoice$weight_pre
+# Use pre-wave weight for validated turnout, because voter file matching
+# was performed for all pre-wave respondents
+turnout$weight <- votechoice$weight_pre
+votechoice$weight <- votechoice$weight
 ```
 
 For some reason, CCES analysis fails with more cores.
