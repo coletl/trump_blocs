@@ -53,26 +53,26 @@ mcdonald_turn <- read_csv("data/McDonaldTurnoutNumbers.csv")
 Recode "hispanic" (term from surveys) to "latino" (term for paper).
 ```{r}
 vbdf_cps <- 
-  mutate(vbdf_cps, 
-         race = recode_factor(race, hispanic = "latino"))
+    mutate(vbdf_cps, 
+           race = recode_factor(race, hispanic = "latino"))
 vbdf_cces <-
-  mutate(vbdf_cces, 
-         race = recode_factor(race, hispanic = "latino"))
+    mutate(vbdf_cces, 
+           race = recode_factor(race, hispanic = "latino"))
 vbdf_cces_reported <- 
-  mutate(vbdf_cces_reported, 
-         race = recode_factor(race, hispanic = "latino"))
+    mutate(vbdf_cces_reported, 
+           race = recode_factor(race, hispanic = "latino"))
 vbdf_anes <-
-  mutate(vbdf_anes, 
-         race = recode_factor(race, hispanic = "latino"))
+    mutate(vbdf_anes, 
+           race = recode_factor(race, hispanic = "latino"))
 vbdf_acc <- 
-  mutate(vbdf_acc, 
-         race = recode_factor(race, hispanic = "latino"))
+    mutate(vbdf_acc, 
+           race = recode_factor(race, hispanic = "latino"))
 vbdf_aaa <- 
-  mutate(vbdf_aaa, 
-         race = recode_factor(race, hispanic = "latino"))
+    mutate(vbdf_aaa, 
+           race = recode_factor(race, hispanic = "latino"))
 vbdf_caa <- 
-  mutate(vbdf_caa, 
-         race = recode_factor(race, hispanic = "latino"))
+    mutate(vbdf_caa, 
+           race = recode_factor(race, hispanic = "latino"))
 ```
 
 
@@ -80,50 +80,50 @@ Restrict to recent years and code `NA` values as other race.
 
 ```{r results = "hide"}
 vbdf_caa <-
-  filter(vbdf_caa, year > 1975) %>%
-  mutate(year = factor(year, ordered = TRUE),
-         race = if_else(is.na(race), "other", as.character(race)),
-         group = race %>% tools::toTitleCase() %>% factor())
+    filter(vbdf_caa, year > 1975) %>%
+    mutate(year = factor(year, ordered = TRUE),
+           race = if_else(is.na(race), "other", as.character(race)),
+           group = race %>% tools::toTitleCase() %>% factor())
 
 
 vbdf_cps <-
-  filter(vbdf_cps, year > 1975) %>%
-  mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
-         race = if_else(is.na(race), "other", as.character(race)),
-         group = race %>% tools::toTitleCase() %>% factor())
+    filter(vbdf_cps, year > 1975) %>%
+    mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
+           race = if_else(is.na(race), "other", as.character(race)),
+           group = race %>% tools::toTitleCase() %>% factor())
 
 
 vbdf_cces <-
-  filter(vbdf_cces, year > 1975) %>%
-  mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
-         race = if_else(is.na(race), "other", as.character(race)),
-         group = race %>% tools::toTitleCase() %>% factor())
+    filter(vbdf_cces, year > 1975) %>%
+    mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
+           race = if_else(is.na(race), "other", as.character(race)),
+           group = race %>% tools::toTitleCase() %>% factor())
 
 vbdf_cces_reported <-
-  filter(vbdf_cces_reported, year > 1975) %>%
-  mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
-         race = if_else(is.na(race), "other", as.character(race)),
-         group = race %>% tools::toTitleCase() %>% factor())
+    filter(vbdf_cces_reported, year > 1975) %>%
+    mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
+           race = if_else(is.na(race), "other", as.character(race)),
+           group = race %>% tools::toTitleCase() %>% factor())
 
 
 vbdf_anes <-
-  filter(vbdf_anes, year > 1975) %>%
-  mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
-         race = if_else(is.na(race), "other", as.character(race)),
-         group = race %>% tools::toTitleCase() %>% factor())
+    filter(vbdf_anes, year > 1975) %>%
+    mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
+           race = if_else(is.na(race), "other", as.character(race)),
+           group = race %>% tools::toTitleCase() %>% factor())
 
 
 vbdf_aaa <-
-  filter(vbdf_aaa, year > 1975) %>%
-  mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
-         race = if_else(is.na(race), "other", as.character(race)),
-         group = race %>% tools::toTitleCase() %>% factor())
+    filter(vbdf_aaa, year > 1975) %>%
+    mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
+           race = if_else(is.na(race), "other", as.character(race)),
+           group = race %>% tools::toTitleCase() %>% factor())
 
 vbdf_acc <-
-  filter(vbdf_acc, year > 1975) %>%
-  mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
-         race = if_else(is.na(race), "other", as.character(race)),
-         group = race %>% tools::toTitleCase() %>% factor())
+    filter(vbdf_acc, year > 1975) %>%
+    mutate(year = factor(year, levels = levels(vbdf_caa$year), ordered = TRUE),
+           race = if_else(is.na(race), "other", as.character(race)),
+           group = race %>% tools::toTitleCase() %>% factor())
 ```
 
 
@@ -131,23 +131,24 @@ vbdf_acc <-
 
 ```{r}
 theme_set(
-  theme_light() + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14))
+    theme_light() + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 14))
 )
 ```
 
 ## Composition
 ```{r}
 p_comp <-
-  vbdf_caa %>%
-  mutate(year = as.numeric(as.character(year))) %>% 
-  ggplot() +
-  aes(x = year, y = prob_mean, color = group, group = group) +
-  geom_line() +
-  geom_point() +
-  scale_color_manual(values = c("green3", "magenta", "black", "grey")) +
-  labs(title = "Composition", color = "Race", x = "Year", y = "Proportion") +
-  scale_x_continuous(breaks = seq(1980, 2020, 10), 
-                     labels = seq(1980, 2020, 10))
+    vbdf_caa %>%
+    mutate(year = as.numeric(as.character(year))) %>% 
+    ggplot() +
+    aes(x = year, y = prob_mean, shape = group, lty = group, group = group) +
+    geom_line() +
+    geom_point() +
+    scale_shape_manual(values = c(19, 17, 15, 3)) +
+    labs(title = "Composition", color = "Race", x = "Year", y = "Proportion",
+         group = NULL, shape = NULL, lty = NULL) +
+    scale_x_continuous(breaks = seq(1980, 2020, 10), 
+                       labels = seq(1980, 2020, 10))
 
 p_comp
 ```
@@ -156,17 +157,18 @@ p_comp
 
 ```{r}
 p_turnout <-
-  vbdf_caa %>%
-  mutate(year = as.numeric(as.character(year))) %>% 
-  ggplot() +
-  aes(x = year, y = pr_turnout_mean, color = group, group = group) +
-  geom_line() +
-  geom_point() +
-  scale_color_manual(values = c("green3", "magenta", "black", "grey")) +
-  scale_x_continuous(breaks = seq(1980, 2020, 10), 
-                     labels = seq(1980, 2020, 10)) +
-  labs(title = "Turnout", color = "Race",
-       x = "Year", y = "Proportion")
+    vbdf_caa %>%
+    mutate(year = as.numeric(as.character(year))) %>% 
+    ggplot() +
+    aes(x = year, y = pr_turnout_mean, shape = group, lty = group, group = group) +
+    geom_line() +
+    geom_point() +
+    scale_shape_manual(values = c(19, 17, 15, 3)) +
+    scale_x_continuous(breaks = seq(1980, 2020, 10), 
+                       labels = seq(1980, 2020, 10)) +
+    labs(title = "Turnout", color = "Race",
+         x = "Year", y = "Proportion",
+         group = NULL, shape = NULL, lty = NULL)
 
 p_turnout
 ```
@@ -175,32 +177,40 @@ p_turnout
 
 ```{r}
 p_votechoice <-
-  vbdf_caa %>%
-  mutate(year = as.numeric(as.character(year))) %>% 
-  ggplot() +
-  aes(x = year, group = group) +
-
-  geom_line(aes(y = pr_voterep_mean, color = "Rep")) +
-  geom_ribbon(aes(y = pr_voterep_mean, ymin = pr_voterep_low, ymax = pr_voterep_high,
-                  fill = "Rep"), alpha = 0.25) +
-
-  geom_line(aes(y = pr_votedem_mean, color = "Dem")) +
-  geom_ribbon(aes(y = pr_votedem_mean, ymin = pr_votedem_low, ymax = pr_votedem_high,
-                  fill = "Dem"), alpha = 0.25) +
-
-  geom_hline(yintercept = 0.5, color = "grey50") +
-
-  scale_color_manual(values = c(Dem = "blue", Rep = "red")) +
-    scale_fill_manual(values = c(Dem = "blue", Rep = "red")) +
-
-  facet_grid(group ~ .) +
-  theme_bw() +
-  theme(legend.position = "none") +
-  scale_x_continuous(breaks = seq(1980, 2020, 10), 
-                     labels = seq(1980, 2020, 10)) +
-  labs(title = "Vote Choice",
-       x = "Year",
-       y = "Pr(vote | turnout)")
+    vbdf_caa %>%
+    mutate(year = as.numeric(as.character(year))) %>% 
+    ggplot() +
+    aes(x = year, group = group) +
+    
+    geom_ribbon(
+        aes(y = pr_voterep_mean, ymin = pr_voterep_low, ymax = pr_voterep_high,
+            fill = "Rep"),
+        fill = "lightgrey") +
+    
+    geom_ribbon(
+        aes(y = pr_votedem_mean, 
+            ymin = pr_votedem_low, ymax = pr_votedem_high,
+            fill = "Dem"),
+        fill = "grey"
+    ) +
+    
+    geom_line(aes(y = pr_voterep_mean, color = "Rep")) +
+    geom_line(aes(y = pr_votedem_mean, color = "Dem")) +
+    geom_hline(yintercept = 0.5, color = "grey50") +
+    
+    scale_color_manual(values = c(Dem = "black", Rep = "darkgrey")) +
+    scale_fill_manual(values = c(Dem = "black", Rep = "darkgrey")) +
+    
+    facet_grid(group ~ .) +
+    theme_bw() +
+    # theme(legend.position = "none") +
+    scale_x_continuous(breaks = seq(1980, 2020, 10), 
+                       labels = seq(1980, 2020, 10)) +
+    labs(title = "Vote Choice",
+         x = "Year",
+         y = "Pr(vote | turnout)",
+         fill = NULL, color = NULL
+    )
 
 p_votechoice
 ```
@@ -208,19 +218,21 @@ p_votechoice
 ## Net Republican Votes
 ```{r}
 p_netrep <-
-  vbdf_caa %>%
-  mutate(year = as.numeric(as.character(year))) %>% 
-  ggplot() +
-  aes(x = year, y = net_rep_mean,
-      ymin = net_rep_low, ymax = net_rep_high, group = group) +
-  geom_point(cex = 2.5) +
-  geom_hline(yintercept = 0, color = "grey50") +
-  geom_line(size = 1.5) +
-  geom_ribbon(alpha = 0.25) +
-  facet_wrap(. ~ group) +
-  scale_x_continuous(breaks = seq(1980, 2020, 10), 
-                     labels = seq(1980, 2020, 10)) +
-  labs(y = "Net Republican Votes", x = "Year") + theme_bw()
+    vbdf_caa %>%
+    mutate(year = as.numeric(as.character(year))) %>% 
+    ggplot() +
+    aes(x = year, y = net_rep_mean,
+        ymin = net_rep_low, ymax = net_rep_high, group = group) +
+    geom_ribbon(fill = "grey") +
+    geom_point(cex = 2.5) +
+    geom_hline(yintercept = 0, color = "grey50") +
+    geom_line(linewidth = 1.5) +
+    facet_wrap(. ~ group) +
+    scale_x_continuous(breaks = seq(1980, 2020, 10), 
+                       labels = seq(1980, 2020, 10)) +
+    labs(y = "Net Republican Votes", x = "Year",
+         group = NULL) + 
+    theme_bw()
 
 p_netrep
 ```
@@ -231,32 +243,69 @@ p_netrep
 ### Write to disk
 ```{r}
 p_grid <- 
-  plot_grid(p_comp + 
-              theme(legend.position = 1, 
-                    axis.text = element_text(size = 8), 
-                    axis.title = element_text(size = 12)),
-            p_turnout + 
-              theme(legend.position = 1, 
-                    axis.text = element_text(size = 8),
-                    axis.title = element_text(size = 12)),
-            p_votechoice +
-              theme(axis.text = element_text(size = 8), 
-                    axis.title = element_text(size = 12)), 
-            rel_widths = c(1, 1.1, 1.2),
-            # rel_ = c(1, 1, 1.2),
-            nrow = 1)
+    plot_grid(p_comp + 
+                  theme(legend.position = "none", 
+                        axis.text = element_text(size = 8), 
+                        axis.title = element_text(size = 12)),
+              p_turnout + 
+                  theme(legend.position = "none", 
+                        axis.text = element_text(size = 8),
+                        axis.title = element_text(size = 12)),
+              p_votechoice +
+                  theme(legend.position = "none", 
+                        axis.text = element_text(size = 8), 
+                        axis.title = element_text(size = 12)), 
+              rel_widths = c(1, 1.1, 1.2),
+              # rel_ = c(1, 1, 1.2),
+              nrow = 1)
+
+legend_race <- 
+    get_plot_component(
+        p_comp + 
+            guides(group = guide_legend(nrow = 1)) +
+            theme(legend.position = "bottom",
+                  legend.box.margin = margin(l = 70, b = 0, 0, 0)),
+        "guide-box-bottom", return_all = TRUE
+    )
+
+legend_vote <- 
+    get_plot_component(
+        p_votechoice + 
+            guides(group = guide_legend(nrow = 1)) +
+            theme(legend.position = "bottom",
+                  legend.box.margin = margin(l = 70, r = 0, 0, 0)),
+        "guide-box-bottom", return_all = TRUE
+    )
+
+legend_grid <- 
+    plot_grid(
+        legend_race, legend_vote
+    )
 
 p_grid_legend <- 
-  plot_grid(p_grid,
-            get_legend(p_comp + 
-                         guides(group = guide_legend(nrow = 1)) +
-                         theme(legend.position = "bottom",
-                               legend.box.margin = margin(0, r = 180, 0, 0))
-            ),
-            ncol = 1, rel_heights = c(1, .1)
-  )
+    plot_grid(p_grid,
+              legend_grid,
+              ncol = 1, axis = "l",
+              rel_heights = c(1, 0.1),
+              rel_widths = c(1, 0.1)
+    )
 
 p_grid_legend
+```
+
+
+```{r}
+ggsave(p_grid_legend, file = "docs/figures/fig1.eps", 
+       height = 6, width = 10)
+
+ggsave(p_netrep, file = "docs/figures/fig2.eps",
+       height = 6, width = 10)
+
+ggsave(p_grid_legend, file = "docs/figures/fig1.pdf", 
+       height = 6, width = 10)
+
+ggsave(p_netrep, file = "docs/figures/fig2.pdf",
+       height = 6, width = 10)
 
 
 ggsave(p_grid_legend, file = "docs/figures/Race_CAA_Comp.pdf", 
@@ -271,72 +320,72 @@ ggsave(p_netrep, file = "docs/figures/Race_CAA_NetRep.pdf",
 # Sensitivity Analysis
 ```{r}
 vb_sensitivity <-
-  vb_swap <-
-  function(vbdf, sens_data, bloc_var = blocs:::get_bloc_var(vbdf)){
-
-  #' Sensitivity analysis by swapping estimates
-  #'
-  #' Test sensitivity of Net Republican Votes results to alternative estimates of density, turnout, and vote choice.
-  #' Supply the data frame of voting bloc results and a similarly structured data frame of alternative bloc-level estimates.
-  #' The `vb_sensitivity()` function will compute a new estimate of Net Republican Votes using any estimates contained in sens_data.
-  #'
-  #' @param vbdf data.frame containing baseline results of voting bloc analysis
-  #' @param sens_data data.frame of alternative estimates for sensitivity analysis, stored in `vbdf` format
-
-  # Checks
-  require(dplyr)
-  require(tidyr)
-
-  blocs:::check_vbdf(vbdf)
-
-  if( ! setequal(vbdf$year, sens_data$year))
-    warning("Years not equal between data sets. Expect NA values.\n")
-  if( ! setequal(vbdf$race, sens_data$race))
-    warning("Blocs not equal between data sets. Expect NA values.\n")
-
-  vbdf <- dplyr::select(vbdf, -contains("net_rep"))
-  sens_data <- dplyr::select(sens_data, -contains("net_rep"))
-
-  sens <-
-    dplyr::left_join(vbdf, sens_data,
-                     by = c("year", bloc_var),
-                     # Old columns suffixed with _baseline
-                     # New columns from sens_data take their place
-                     # If an estimate is not present in sens_data,
-                     # it isn't replaced for net_rep calculation.
-                     suffix = c("_baseline", "")) %>%
-
-    dplyr::mutate(net_rep_sens = prob_mean * pr_turnout_mean * (pr_voterep_mean - pr_votedem_mean) ) %>%
-    dplyr::select(year, race, net_rep_sens)
-
-  return(sens)
-
-}
+    vb_swap <-
+    function(vbdf, sens_data, bloc_var = blocs:::get_bloc_var(vbdf)){
+        
+        #' Sensitivity analysis by swapping estimates
+        #'
+        #' Test sensitivity of Net Republican Votes results to alternative estimates of density, turnout, and vote choice.
+        #' Supply the data frame of voting bloc results and a similarly structured data frame of alternative bloc-level estimates.
+        #' The `vb_sensitivity()` function will compute a new estimate of Net Republican Votes using any estimates contained in sens_data.
+        #'
+        #' @param vbdf data.frame containing baseline results of voting bloc analysis
+        #' @param sens_data data.frame of alternative estimates for sensitivity analysis, stored in `vbdf` format
+        
+        # Checks
+        require(dplyr)
+        require(tidyr)
+        
+        blocs:::check_vbdf(vbdf)
+        
+        if( ! setequal(vbdf$year, sens_data$year))
+            warning("Years not equal between data sets. Expect NA values.\n")
+        if( ! setequal(vbdf$race, sens_data$race))
+            warning("Blocs not equal between data sets. Expect NA values.\n")
+        
+        vbdf <- dplyr::select(vbdf, -contains("net_rep"))
+        sens_data <- dplyr::select(sens_data, -contains("net_rep"))
+        
+        sens <-
+            dplyr::left_join(vbdf, sens_data,
+                             by = c("year", bloc_var),
+                             # Old columns suffixed with _baseline
+                             # New columns from sens_data take their place
+                             # If an estimate is not present in sens_data,
+                             # it isn't replaced for net_rep calculation.
+                             suffix = c("_baseline", "")) %>%
+            
+            dplyr::mutate(net_rep_sens = prob_mean * pr_turnout_mean * (pr_voterep_mean - pr_votedem_mean) ) %>%
+            dplyr::select(year, race, net_rep_sens)
+        
+        return(sens)
+        
+    }
 ```
 
 Check analyses across surveys, storing results in a list.
 ```{r}
 sens_list <-
-  list(`CPS_ANES_ANES` = vbdf_caa %>%
-           select(year, race, net_rep_sens = net_rep_mean))
+    list(`CPS_ANES_ANES` = vbdf_caa %>%
+             select(year, race, net_rep_sens = net_rep_mean))
 
 sens_list$`ACS_CCES*_CCES` <-
-  vbdf_acc %>% select(year, race, net_rep_sens = net_rep_mean)
+    vbdf_acc %>% select(year, race, net_rep_sens = net_rep_mean)
 
 sens_list$ACS_ANES_ANES <-
-  vbdf_aaa %>% select(year, race, net_rep_sens = net_rep_mean)
+    vbdf_aaa %>% select(year, race, net_rep_sens = net_rep_mean)
 
 sens_list$CPS_CPS_ANES <-
-  vbdf_cps %>% select(year, race, net_rep_sens = net_rep_mean)
+    vbdf_cps %>% select(year, race, net_rep_sens = net_rep_mean)
 
 sens_list$ANES_ANES_ANES <-
-  vbdf_anes %>% select(year, race, net_rep_sens = net_rep_mean)
+    vbdf_anes %>% select(year, race, net_rep_sens = net_rep_mean)
 
 sens_list$`CCES_CCES*_CCES` <-
-  vbdf_cces %>% select(year, race, net_rep_sens = net_rep_mean)
+    vbdf_cces %>% select(year, race, net_rep_sens = net_rep_mean)
 
 sens_list$`CCES_CCES_CCES` <-
-  vbdf_cces_reported %>% select(year, race, net_rep_sens = net_rep_mean)
+    vbdf_cces_reported %>% select(year, race, net_rep_sens = net_rep_mean)
 
 ```
 
@@ -345,24 +394,24 @@ sens_list$`CCES_CCES_CCES` <-
 Construct a data frame of alternative turnout estimates for the same years.
 ```{r}
 mcdonald_vbdf <-
-  # remove midterms
-  filter(mcdonald_turn, `Turnout Rate` %in% as.character(vbdf_caa$year)) %>% 
-  # construct vbdf-like object
-  data.frame(
-    year = factor(.$`Turnout Rate`, levels = levels(vbdf_caa$year), ordered = TRUE),
-    variable = "turnout",
-    white = .$`Non-Hispanic White`,
-    black = .$`Non-Hispanic Black`,
-    latino = .$Hispanic,
-    other = .$Other
-  ) %>%
-  pivot_longer(
-    cols = c("white", "black", "latino", "other"),
-    names_to = "race",
-    values_to = "pr_turnout_mean")
+    # remove midterms
+    filter(mcdonald_turn, `Turnout Rate` %in% as.character(vbdf_caa$year)) %>% 
+    # construct vbdf-like object
+    data.frame(
+        year = factor(.$`Turnout Rate`, levels = levels(vbdf_caa$year), ordered = TRUE),
+        variable = "turnout",
+        white = .$`Non-Hispanic White`,
+        black = .$`Non-Hispanic Black`,
+        latino = .$Hispanic,
+        other = .$Other
+    ) %>%
+    pivot_longer(
+        cols = c("white", "black", "latino", "other"),
+        names_to = "race",
+        values_to = "pr_turnout_mean")
 
 sens_list$ACS_McDonald_ANES <-
-  vb_sensitivity(vbdf_aaa, sens_data = mcdonald_vbdf)
+    vb_sensitivity(vbdf_aaa, sens_data = mcdonald_vbdf)
 ```
 
 ## ACS-CPS-ANES
@@ -370,7 +419,7 @@ sens_list$ACS_McDonald_ANES <-
 sens_list$ACS_CPS_ANES <-
     vb_sensitivity(vbdf_cps,
                    sens_data = vbdf_aaa %>%
-                     select(year, race, contains("prob"), contains("vote")))
+                       select(year, race, contains("prob"), contains("vote")))
 ```
 
 ## ACS-CPS-CCES
@@ -378,20 +427,20 @@ sens_list$ACS_CPS_ANES <-
 sens_list$ACS_CPS_ANES <-
     vb_sensitivity(vbdf_cps,
                    sens_data = vbdf_acc %>%
-                     select(year, race, contains("prob"), contains("vote")))
+                       select(year, race, contains("prob"), contains("vote")))
 ```
 
 
 ## ACS-McDonald-ANES
 ```{r}
 sens_list$ACS_McDonald_ANES <-
-  vb_sensitivity(vbdf_aaa, sens_data = mcdonald_vbdf)
+    vb_sensitivity(vbdf_aaa, sens_data = mcdonald_vbdf)
 ```
 
 ## ACS-McDonald-CCES
 ```{r}
 sens_list$ACS_McDonald_CCES <-
-  vb_sensitivity(vbdf_acc, sens_data = mcdonald_vbdf)
+    vb_sensitivity(vbdf_acc, sens_data = mcdonald_vbdf)
 ```
 
 ## ACS-ANES-CCES
@@ -404,37 +453,37 @@ sens_list$ACS_ANES_CCES <-
 ## ACS-CCES*-ANES
 ```{r}
 sens_list$`ACS_CCES*_ANES` <-
-  vb_sensitivity(vbdf_aaa,
-                 sens_data = select(vbdf_cces, year, race, contains("turnout")))
+    vb_sensitivity(vbdf_aaa,
+                   sens_data = select(vbdf_cces, year, race, contains("turnout")))
 ```
 
 ## ACS-CCES-ANES
 ```{r}
 sens_list$ACS_CCES_ANES <-
-  vb_sensitivity(vbdf_aaa,
-                 sens_data = select(vbdf_cces_reported, year, race, contains("turnout")))
+    vb_sensitivity(vbdf_aaa,
+                   sens_data = select(vbdf_cces_reported, year, race, contains("turnout")))
 ```
 
 ## ACS-CPS-CCES
 ```{r}
 sens_list$ACS_CPS_CCES <-
-  vb_sensitivity(vbdf_acc,
-                 sens_data = select(vbdf_cps, year, race, contains("turnout")))
+    vb_sensitivity(vbdf_acc,
+                   sens_data = select(vbdf_cps, year, race, contains("turnout")))
 ```
 
 ## ACS-CPS-ANES
 ```{r}
 sens_list$ACS_CPS_ANES <-
-  vb_sensitivity(vbdf_aaa,
-                 sens_data = select(vbdf_cps, year, race, contains("turnout")))
+    vb_sensitivity(vbdf_aaa,
+                   sens_data = select(vbdf_cps, year, race, contains("turnout")))
 ```
 
 ## CPS-ANES-CCES
 ```{r}
 sens_list$CPS_ANES_CCES <-
-  vb_sensitivity(vbdf_caa,
-                 sens_data = select(vbdf_cces, year, race, contains("vote"))
-                 )
+    vb_sensitivity(vbdf_caa,
+                   sens_data = select(vbdf_cces, year, race, contains("vote"))
+    )
 ```
 
 
@@ -442,37 +491,37 @@ sens_list$CPS_ANES_CCES <-
 ## CPS-McDonald-ANES
 ```{r}
 sens_list$CPS_McDonald_ANES <-
-  vb_sensitivity(vbdf_caa, sens_data = mcdonald_vbdf)
+    vb_sensitivity(vbdf_caa, sens_data = mcdonald_vbdf)
 ```
 
 ## CPS-McDonald-CCES
 ```{r}
 sens_list$CPS_McDonald_CCES <-
-  vb_sensitivity(vbdf_caa,
-                 sens_data =
-                   left_join(
-                     mcdonald_vbdf,
-                     select(vbdf_cces, year, race, contains("vote"))
-                   )
-                 )
+    vb_sensitivity(vbdf_caa,
+                   sens_data =
+                       left_join(
+                           mcdonald_vbdf,
+                           select(vbdf_cces, year, race, contains("vote"))
+                       )
+    )
 ```
 
 ## CPS-CCES*-CCES
 ```{r}
 sens_list$`CPS_CCES*_CCES` <-
-  vb_sensitivity(vbdf_caa,
-                 sens_data = select(vbdf_cces, year, race,
-                                    contains("turnout"), contains("vote"))
-                 )
+    vb_sensitivity(vbdf_caa,
+                   sens_data = select(vbdf_cces, year, race,
+                                      contains("turnout"), contains("vote"))
+    )
 ```
 
 ## CPS-CCES-CCES
 ```{r}
 sens_list$CPS_CCES_CCES <-
-  vb_sensitivity(vbdf_cps,
-                 sens_data = select(vbdf_cces_reported, year, race,
-                                    contains("turnout"), contains("vote"))
-                 )
+    vb_sensitivity(vbdf_cps,
+                   sens_data = select(vbdf_cces_reported, year, race,
+                                      contains("turnout"), contains("vote"))
+    )
 ```
 
 ## {-}
@@ -480,20 +529,20 @@ sens_list$CPS_CCES_CCES <-
 ### Combine
 ```{r}
 sens_order <-
-  c("CPS_ANES_ANES", 
-    "CPS_McDonald_ANES",
-    "ANES_ANES_ANES", 
-    "ACS_CPS_ANES", "ACS_McDonald_ANES",
-    "CPS_McDonald_CCES",
-    "CCES_CCES_CCES",
-    "CPS_CPS_ANES", 
-    "CCES_CCES*_CCES",
-    "ACS_CCES*_CCES", "ACS_CCES*_ANES", "ACS_CCES_ANES", "ACS_CCES_CCES",
-    "ACS_ANES_ANES", "ACS_ANES_CCES",
-    "ACS_McDonald_CCES",
-    "ACS_CPS_CCES",
-    "CPS_CCES*_CCES", "CPS_CCES_CCES", "CPS_ANES_CCES"
-  )
+    c("CPS_ANES_ANES", 
+      "CPS_McDonald_ANES",
+      "ANES_ANES_ANES", 
+      "ACS_CPS_ANES", "ACS_McDonald_ANES",
+      "CPS_McDonald_CCES",
+      "CCES_CCES_CCES",
+      "CPS_CPS_ANES", 
+      "CCES_CCES*_CCES",
+      "ACS_CCES*_CCES", "ACS_CCES*_ANES", "ACS_CCES_ANES", "ACS_CCES_CCES",
+      "ACS_ANES_ANES", "ACS_ANES_CCES",
+      "ACS_McDonald_CCES",
+      "ACS_CPS_CCES",
+      "CPS_CCES*_CCES", "CPS_CCES_CCES", "CPS_ANES_CCES"
+    )
 
 stopifnot(anyDuplicated(sens_order) == 0)
 stopifnot(anyDuplicated(sens_list) == 0)
@@ -503,20 +552,20 @@ stopifnot(length(setdiff(names(sens_list), sens_order)) == 0)
 sens_list <- sens_list[sens_order]
 
 sens_results <-
-  bind_rows(sens_list, .id = "sens_tag") %>%
-  mutate(Comp = str_extract(sens_tag, "^[[:alpha:]]+(?=_)"),
-         Turnout = str_extract(sens_tag, "(?<=_)[[:alpha:]*]+(?=_)"),
-         Vote = str_extract(sens_tag, "(?<=_)[[:alpha:]]+$"))
+    bind_rows(sens_list, .id = "sens_tag") %>%
+    mutate(Comp = str_extract(sens_tag, "^[[:alpha:]]+(?=_)"),
+           Turnout = str_extract(sens_tag, "(?<=_)[[:alpha:]*]+(?=_)"),
+           Vote = str_extract(sens_tag, "(?<=_)[[:alpha:]]+$"))
 
 ```
 
 Cast the years to columns of Net Republican Votes for each data combination and voting bloc. Split into list to print separate table for each race.
 ```{r}
 sens_wide <-
-  sens_results %>%
-  pivot_wider(id_cols = c("Comp", "Turnout", "Vote", "race"),
-              names_from = year,
-              values_from = net_rep_sens)
+    sens_results %>%
+    pivot_wider(id_cols = c("Comp", "Turnout", "Vote", "race"),
+                names_from = year,
+                values_from = net_rep_sens)
 
 sens_wide <-
     dplyr::select(sens_wide,
@@ -524,53 +573,53 @@ sens_wide <-
                   all_of(as.character(seq(1976, 2020, 4))), everything())
 
 sens_table_list <-
-  split(sens_wide, sens_wide$race) %>% lapply( \(x) select(x, -race))
+    split(sens_wide, sens_wide$race) %>% lapply( \(x) select(x, -race))
 ```
 
 ```{r results = "asis"}
 options(knitr.kable.NA = '')
 
 sens_table_list$black %>%
-  knitr::kable(digits = 3) %>%
-  kableExtra::kable_styling()
+    knitr::kable(digits = 3) %>%
+    kableExtra::kable_styling()
 
 sens_table_list$latino %>%
-  knitr::kable(digits = 3) %>%
-  kableExtra::kable_styling()
+    knitr::kable(digits = 3) %>%
+    kableExtra::kable_styling()
 
 sens_table_list$white %>%
-  knitr::kable(digits = 3) %>%
-  kableExtra::kable_styling()
+    knitr::kable(digits = 3) %>%
+    kableExtra::kable_styling()
 
 ```
 
 Write to tex file.
 ```{r results = "hide"}
 sens_table_list$black %>%
-  knitr::kable(digits = 3,
-               label = "t:black_sens",
-               caption = "Net Republican Votes from Black Citizens",
-               format = "latex", booktabs = TRUE) %>%
-  kableExtra::landscape() %>%
-  kableExtra::kable_styling(latex_options = "scale_down") %>%
-  write("docs/tables/table_black.tex")
+    knitr::kable(digits = 3,
+                 label = "t:black_sens",
+                 caption = "Net Republican Votes from Black Citizens",
+                 format = "latex", booktabs = TRUE) %>%
+    kableExtra::landscape() %>%
+    kableExtra::kable_styling(latex_options = "scale_down") %>%
+    write("docs/tables/table_black.tex")
 
 sens_table_list$latino %>%
-  knitr::kable(digits = 3,
-               label = "t:latin_sens",
-               caption = "Net Republican Votes from Latino Citizens",
-               format = "latex", booktabs = TRUE) %>%
-  kableExtra::landscape() %>%
-  kableExtra::kable_styling(latex_options = "scale_down") %>%
-  write("docs/tables/table_latino.tex")
+    knitr::kable(digits = 3,
+                 label = "t:latin_sens",
+                 caption = "Net Republican Votes from Latino Citizens",
+                 format = "latex", booktabs = TRUE) %>%
+    kableExtra::landscape() %>%
+    kableExtra::kable_styling(latex_options = "scale_down") %>%
+    write("docs/tables/table_latino.tex")
 
 sens_table_list$white %>%
-  knitr::kable(digits = 3,
-               label = "t:white_sens",
-               caption = "Net Republican Votes from White Citizens",
-               format = "latex", booktabs = TRUE) %>%
-  kableExtra::landscape() %>%
-  kableExtra::kable_styling(latex_options = "scale_down") %>%
-  write("docs/tables/table_white.tex")
+    knitr::kable(digits = 3,
+                 label = "t:white_sens",
+                 caption = "Net Republican Votes from White Citizens",
+                 format = "latex", booktabs = TRUE) %>%
+    kableExtra::landscape() %>%
+    kableExtra::kable_styling(latex_options = "scale_down") %>%
+    write("docs/tables/table_white.tex")
 
 ```
