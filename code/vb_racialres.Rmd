@@ -251,6 +251,7 @@ p_diff_cont <-
 p_diff_cont
 
 ggsave(p_diff_cont, file = "docs/figures/WhiteRacialResentment.pdf")
+ggsave(p_diff_cont, file = "docs/figures/fig3.eps")
 ```
 
 2016 -- 2012.
