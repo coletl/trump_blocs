@@ -31,6 +31,7 @@ library(tidyr)
 library(readr)
 library(kableExtra)
 library(ggplot2)
+library(patchwork)
 
 source("code/functions.R")
 
@@ -41,7 +42,7 @@ run_rmd <- function(file, echo = FALSE){
     tmp <- tempfile()
     suppressMessages(invisible(knitr::purl(file, output = tmp, documentation = 0)))
     cat("Extracted code, now evaluating...")
-
+    
     source(tmp, echo = echo)
     unlink(tmp)
 }
@@ -67,12 +68,12 @@ anes <-
 
 ```{r}
 min_rr <-
-  anes %>% filter(race == "white") %>%
-  pull(racialres) %>% min(na.rm = TRUE)
+    anes %>% filter(race == "white") %>%
+    pull(racialres) %>% min(na.rm = TRUE)
 
 max_rr <-
-  anes %>% filter(race == "white") %>%
-  pull(racialres) %>% max(na.rm = TRUE)
+    anes %>% filter(race == "white") %>%
+    pull(racialres) %>% max(na.rm = TRUE)
 
 ```
 
@@ -94,8 +95,11 @@ g_dens <-
     filter(anes, race == "white") %>%
     ggplot() + aes(x = racialres, y = ..density..,  weight = weight) +
     geom_density() + facet_wrap("year") + 
-  xlab('Racial Resentment') + ylab('Density') +
-  theme_bw()
+    labs(
+        title = "White Racial Resentment",
+        x = "Racial Resentment", y = "Density",
+    ) +
+    theme_bw()
 
 g_hist; g_dens
 ```
@@ -107,8 +111,11 @@ g_turnout <-
     ggplot() +
     aes(x = racialres, y = voted) +
     geom_smooth(se = FALSE, color = "black") + facet_wrap("year") +
-      xlab('Racial Resentment') + ylab('Turnout Rate') +
-theme_bw()
+    labs(
+        title = "Racial Resentment and Turnout, White Voters",
+        x = "Racial Resentment", y = "Turnout Rate"
+    ) +
+    theme_bw()
 
 g_turnout
 ```
@@ -120,10 +127,24 @@ g_relation <-
     ggplot() +
     aes(x = racialres, y = vote_pres_rep) +
     geom_smooth(se = FALSE, color = "black") + facet_wrap("year") + theme_bw() +
-    xlab('Racial Resentment') + ylab('Pr(Vote Republican|Turnout)')
+    labs(
+        title = "Racial Resentment and Republican Vote Choice, White Voters",
+        x = "Racial Resentment", y = "Probability Republican"
+    )
 
 g_relation
 ```
+
+Export components plot.
+```{r fig.width = 10, fig.height = 8}
+g_patched <- (g_dens / g_turnout / g_relation)
+
+ggsave(g_patched, file = "docs/figures/fig4.eps", height = 10, width = 8)
+ggsave(g_patched, file = "docs/figures/fig4.pdf", height = 10, width = 8)
+
+g_patched
+```
+
 
 
 # Main analysis
@@ -155,15 +176,15 @@ white_res_yrs <-
     lapply(
         \(anes_yr)
         vb_continuous(data = anes_yr,
-
+                      
                       indep = "racialres", dv_turnout = "voted",
                       dv_vote3 = "vote_pres3",
                       weight = "weight",
-
+                      
                       # Same range to set estimation points for all years
                       min_val = min_rr,
                       max_val = max_rr,
-
+                      
                       boot_iters = boot_iters
         )
     )
@@ -200,7 +221,7 @@ for(yr in unique(white_res$year))
         setequal(filter(white_res, year == 2012)$racialres,
                  filter(white_res, year == yr)$racialres
         )
-
+        
     )
 ```
 
@@ -223,35 +244,66 @@ stopifnot(
 
 ### Summarize results {.tabset}
 
+```{r}
+saveRDS(white_res_diff, "data/vbdf_racialres.rds")
+```
+
+
 #### Continuous summary
 
 ```{r class.source = 'fold-show'}
 white_res_diff_sum <-
-  split(white_res_diff, white_res_diff$comp) %>% 
-  lapply(
-    function(comp_df)
-      vb_summary(comp_df, "continuous",
-             estimates = c("diff_net_rep"),
-             na.rm = TRUE,
-             low_ci  = 0.025, high_ci = 0.975)
-      ) %>% 
-  bind_rows(.id = "comp")
+    split(white_res_diff, white_res_diff$comp) %>% 
+    lapply(
+        function(comp_df)
+            vb_summary(comp_df, "continuous",
+                       estimates = c("diff_net_rep"),
+                       na.rm = TRUE,
+                       low_ci  = 0.025, high_ci = 0.975)
+    ) %>% 
+    bind_rows(.id = "comp")
 ```
 
 
+Demo of `blocs::vb_plot()` function.
 ```{r}
 p_diff_cont <-
-  vb_plot(white_res_diff_sum,
-          y_col = "diff_net_rep_mean",
-          ymin_col = "diff_net_rep_low",
-          ymax_col = "diff_net_rep_high") +
+    vb_plot(white_res_diff_sum,
+            y_col = "diff_net_rep_mean",
+            ymin_col = "diff_net_rep_low",
+            ymax_col = "diff_net_rep_high") +
     xlab('Racial Resentment') +
     ylab('Change in Net Republican Votes')
 
 p_diff_cont
+```
 
-ggsave(p_diff_cont, file = "docs/figures/WhiteRacialResentment.pdf")
+Manually construct plot for EPS format.
+```{r}
+p_diff_cont <-
+    ggplot(white_res_diff_sum) +
+    aes(
+        x = racialres, 
+        y = diff_net_rep_mean,
+        ymin = diff_net_rep_low,
+        ymax = diff_net_rep_high,
+        ) + 
+    geom_ribbon(fill = "grey") +
+    geom_hline(yintercept = 0) + 
+    geom_line() +
+    theme_bw() +
+    facet_wrap("comp") +
+    labs(
+        x = "Racial Resentment",
+        y = "Change in Net Republican Votes"
+    )
+
+p_diff_cont
+```
+
+```{r}
 ggsave(p_diff_cont, file = "docs/figures/fig3.eps")
+ggsave(p_diff_cont, file = "docs/figures/fig3.pdf")
 ```
 
 2016 -- 2012.
@@ -259,8 +311,8 @@ ggsave(p_diff_cont, file = "docs/figures/fig3.eps")
 p_diff_cont_2016 <-
     filter(white_res_diff_sum, comp == "2016-2012") %>%
     vb_plot(y_col = "diff_net_rep_mean",
-                ymin_col = "diff_net_rep_low",
-                ymax_col = "diff_net_rep_high") +
+            ymin_col = "diff_net_rep_low",
+            ymax_col = "diff_net_rep_high") +
     labs(x = 'Racial Resentment', y = 'Change in Net Republican Votes')  +
     theme_bw()
 
@@ -303,15 +355,15 @@ white_res_diff <-
 Integrate results within bin.
 ```{r class.source = 'fold-show'}
 white_res_diff_bin5sum <-
-  split(white_res_diff, white_res_diff$comp) %>% 
-  lapply(
-    function(comp_df)
-      vb_summary(comp_df, type = "binned",
-                 bin_col = "racialres5",
-                 estimates = c("diff_net_rep"),
-                 na.rm = TRUE)
-      ) %>% 
-  bind_rows(.id = "comp")
+    split(white_res_diff, white_res_diff$comp) %>% 
+    lapply(
+        function(comp_df)
+            vb_summary(comp_df, type = "binned",
+                       bin_col = "racialres5",
+                       estimates = c("diff_net_rep"),
+                       na.rm = TRUE)
+    ) %>% 
+    bind_rows(.id = "comp")
 
 
 white_res_diff_bin5sum
@@ -321,10 +373,10 @@ Plot.
 ```{r}
 p_diff5 <-
     vb_plot(white_res_diff_bin5sum,
-                x_col = "racialres5",
-                y_col = "diff_net_rep_mean",
-                ymin_col = "diff_net_rep_low",
-                ymax_col = "diff_net_rep_high",
+            x_col = "racialres5",
+            y_col = "diff_net_rep_mean",
+            ymin_col = "diff_net_rep_low",
+            ymax_col = "diff_net_rep_high",
     )
 
 p_diff5
@@ -377,15 +429,15 @@ white_res_diff <-
 Integrate results within bin.
 ```{r class.source = 'fold-show'}
 white_res_diff_bin4sum <-
-  split(white_res_diff, white_res_diff$comp) %>% 
-  lapply(
-    function(comp_df)
-      vb_summary(comp_df, type = "binned",
-                 bin_col = "racialres4",
-                 estimates = c("diff_net_rep"),
-                 na.rm = TRUE)
-  ) %>% 
-  bind_rows(.id = "comp")
+    split(white_res_diff, white_res_diff$comp) %>% 
+    lapply(
+        function(comp_df)
+            vb_summary(comp_df, type = "binned",
+                       bin_col = "racialres4",
+                       estimates = c("diff_net_rep"),
+                       na.rm = TRUE)
+    ) %>% 
+    bind_rows(.id = "comp")
 
 white_res_diff_bin4sum
 ```
@@ -393,12 +445,12 @@ white_res_diff_bin4sum
 Plot.
 ```{r}
 p_diff4 <-
-  vb_plot(white_res_diff_bin4sum,
-          x_col = "racialres4",
-          y_col = "diff_net_rep_mean",
-          ymin_col = "diff_net_rep_low",
-          ymax_col = "diff_net_rep_high",
-  )
+    vb_plot(white_res_diff_bin4sum,
+            x_col = "racialres4",
+            y_col = "diff_net_rep_mean",
+            ymin_col = "diff_net_rep_low",
+            ymax_col = "diff_net_rep_high",
+    )
 
 p_diff4
 ```
@@ -429,7 +481,7 @@ anes <-
                    ),
                    include.lowest = TRUE, labels = FALSE
                ) %>% factor(ordered = TRUE),
-
+           
            racialres_bin4 =
                cut(racialres,
                    breaks = c(min(racialres, na.rm = TRUE),
@@ -454,14 +506,14 @@ resbin4 <-
                     dv_turnout = "voted",
                     dv_vote3 = "vote_pres3",
                     weight = "weight",
-
+                    
                     boot_iters = boot_iters,
                     check_discrete = FALSE
         )
     ) %>%
-
+    
     bind_rows(.id = "year") %>%
-
+    
     # Rescale density and net votes by proportion white in tot. pop.
     # since we subset to white respondents
     left_join(white_yr, by = "year") %>%
@@ -489,14 +541,14 @@ resbin5 <-
                     dv_turnout = "voted",
                     dv_vote3 = "vote_pres3",
                     weight = "weight",
-
+                    
                     boot_iters = boot_iters,
                     check_discrete = FALSE
         )
     ) %>%
-
+    
     bind_rows(.id = "year") %>%
-
+    
     # Rescale density and net votes by proportion white in tot. pop.
     # since we subset to white respondents
     left_join(white_yr, by = "year") %>%
@@ -514,18 +566,18 @@ resbin5 <-
 Check, allowing for resampling variability.
 ```{r}
 resbin5 %>%
-  group_by(year, resample) %>%
-  summarize(race_tot = sum(prob),
-            ave_turnout = mean(pr_turnout, na.rm = TRUE)) %>%
-  assertr::verify(between(race_tot, 0.4, 1)) %>% 
-  assertr::verify(between(ave_turnout, 0.5, 1))
+    group_by(year, resample) %>%
+    summarize(race_tot = sum(prob),
+              ave_turnout = mean(pr_turnout, na.rm = TRUE)) %>%
+    assertr::verify(between(race_tot, 0.4, 1)) %>% 
+    assertr::verify(between(ave_turnout, 0.5, 1))
 
 resbin4 %>%
-  group_by(year, resample) %>%
-  summarize(race_tot = sum(prob),
-            ave_turnout = mean(pr_turnout, na.rm = TRUE)) %>%
-  assertr::verify(between(race_tot, 0.4, 1)) %>% 
-  assertr::verify(between(ave_turnout, 0.5, 1))
+    group_by(year, resample) %>%
+    summarize(race_tot = sum(prob),
+              ave_turnout = mean(pr_turnout, na.rm = TRUE)) %>%
+    assertr::verify(between(race_tot, 0.4, 1)) %>% 
+    assertr::verify(between(ave_turnout, 0.5, 1))
 ```
 
 
@@ -536,23 +588,23 @@ white_resbin5_diff <-
     vb_difference(estimates = "net_rep")
 
 white_resbin5_diff_sum <-
-  filter(white_resbin5_diff, !is.na(diff_net_rep)) %>% 
-  split(., .$comp) %>% 
-  lapply(
-    function(comp_df)
-      vb_summary(comp_df,
-                 type = "discrete", estimates = "diff_net_rep")
-  ) %>% 
-  bind_rows(.id = "comp")
+    filter(white_resbin5_diff, !is.na(diff_net_rep)) %>% 
+    split(., .$comp) %>% 
+    lapply(
+        function(comp_df)
+            vb_summary(comp_df,
+                       type = "discrete", estimates = "diff_net_rep")
+    ) %>% 
+    bind_rows(.id = "comp")
 
 
 p_diff5 <-
-  vb_plot(white_resbin5_diff_sum,
-          x_col = "racialres_bin5",
-          y_col = "diff_net_rep_mean",
-          ymin_col = "diff_net_rep_low",
-          ymax_col = "diff_net_rep_high"
-  )
+    vb_plot(white_resbin5_diff_sum,
+            x_col = "racialres_bin5",
+            y_col = "diff_net_rep_mean",
+            ymin_col = "diff_net_rep_low",
+            ymax_col = "diff_net_rep_high"
+    )
 
 p_diff5
 ```
@@ -565,23 +617,23 @@ white_resbin4_diff <-
     vb_difference(estimates = "net_rep")
 
 white_resbin4_diff_sum <-
-  filter(white_resbin4_diff, !is.na(diff_net_rep)) %>% 
-  split(., .$comp) %>% 
-  lapply(
-    function(comp_df)
-      vb_summary(comp_df,
-                 type = "discrete", estimates = "diff_net_rep")
-  ) %>% 
-  bind_rows(.id = "comp")
+    filter(white_resbin4_diff, !is.na(diff_net_rep)) %>% 
+    split(., .$comp) %>% 
+    lapply(
+        function(comp_df)
+            vb_summary(comp_df,
+                       type = "discrete", estimates = "diff_net_rep")
+    ) %>% 
+    bind_rows(.id = "comp")
 
 
 p_diff4 <-
-  vb_plot(white_resbin4_diff_sum,
-          x_col = "racialres_bin4",
-          y_col = "diff_net_rep_mean",
-          ymin_col = "diff_net_rep_low",
-          ymax_col = "diff_net_rep_high",
-  )
+    vb_plot(white_resbin4_diff_sum,
+            x_col = "racialres_bin4",
+            y_col = "diff_net_rep_mean",
+            ymin_col = "diff_net_rep_low",
+            ymax_col = "diff_net_rep_high",
+    )
 
 p_diff4
 ```
@@ -590,20 +642,20 @@ p_diff4
 
 ```{r}
 rbind(
-  data.frame(analysis = "Cont, quin summary", white_res_diff_bin5sum) %>%
-    filter(comp %in% c("2016-2012", "2020-2016")) %>% rename_with(~ "racialres_lvl", matches("racialres")),
-  data.frame(analysis = "Disc quin", white_resbin5_diff_sum) %>%
-    filter(comp == "2016-2012") %>% rename_with(~ "racialres_lvl", matches("racialres")),
-  data.frame(analysis = "Cont, quar sum", white_res_diff_bin4sum) %>%
-    filter(comp == "2016-2012") %>% rename_with(~ "racialres_lvl", matches("racialres")),
-  data.frame(analysis = "Disc quar", white_resbin4_diff_sum) %>%
-    filter(comp == "2016-2012") %>% rename_with(~ "racialres_lvl", matches("racialres"))
+    data.frame(analysis = "Cont, quin summary", white_res_diff_bin5sum) %>%
+        filter(comp %in% c("2016-2012", "2020-2016")) %>% rename_with(~ "racialres_lvl", matches("racialres")),
+    data.frame(analysis = "Disc quin", white_resbin5_diff_sum) %>%
+        filter(comp == "2016-2012") %>% rename_with(~ "racialres_lvl", matches("racialres")),
+    data.frame(analysis = "Cont, quar sum", white_res_diff_bin4sum) %>%
+        filter(comp == "2016-2012") %>% rename_with(~ "racialres_lvl", matches("racialres")),
+    data.frame(analysis = "Disc quar", white_resbin4_diff_sum) %>%
+        filter(comp == "2016-2012") %>% rename_with(~ "racialres_lvl", matches("racialres"))
 ) %>%
-  dplyr::select(all_of(
-    c("analysis", "comp", "diff_net_rep_mean",
-      "diff_net_rep_low", "diff_net_rep_high")
-  )) %>%
-  knitr::kable(digits = 3) %>% kable_styling()
+    dplyr::select(all_of(
+        c("analysis", "comp", "diff_net_rep_mean",
+          "diff_net_rep_low", "diff_net_rep_high")
+    )) %>%
+    knitr::kable(digits = 3) %>% kable_styling()
 ```
 
 # Robustness {.tabset}
@@ -617,8 +669,8 @@ robust_years <- c(2012, 2016)
 robust_results <- list()
 
 pop_count <-
-  group_by(anes, year) %>%
-  count(wt = weight)
+    group_by(anes, year) %>%
+    count(wt = weight)
 ```
 
 ## Partisanship {.tabset}
@@ -628,9 +680,9 @@ pop_count <-
 ```{r class.source = 'fold-show'}
 anes_sub <-
     filter(anes,
-
+           
            pid3 == "rep", race == "white",
-
+           
            year %in% robust_years, !is.na(racialres)
     )
 
@@ -648,9 +700,9 @@ run_rmd("code/child_resent.Rmd")
 ```{r class.source = 'fold-show'}
 anes_sub <-
     filter(anes,
-
+           
            pid3 == "dem", race == "white",
-
+           
            year %in% robust_years, !is.na(racialres)
     )
 
@@ -669,9 +721,9 @@ run_rmd("code/child_resent.Rmd")
 ```{r class.source = 'fold-show'}
 anes_sub <-
     filter(anes,
-
+           
            pid3 == "indep", race == "white",
-
+           
            year %in% robust_years, !is.na(racialres)
     )
 
@@ -688,10 +740,10 @@ run_rmd("code/child_resent.Rmd")
 
 ```{r}
 anes_sub <-
-  filter(anes,
-         race == "white",
-         last_voted == 1, last_vote_pres == "dem",
-         year %in% robust_years, !is.na(racialres))
+    filter(anes,
+           race == "white",
+           last_voted == 1, last_vote_pres == "dem",
+           year %in% robust_years, !is.na(racialres))
 
 sub_tag <- "White Obama Voters"
 ```
@@ -708,9 +760,9 @@ run_rmd("code/child_resent.Rmd")
 ```{r class.source = 'fold-show'}
 anes_sub <-
     filter(anes,
-
+           
            educ == "HS or less", race == "white",
-
+           
            year %in% robust_years, !is.na(racialres)
     )
 
@@ -728,9 +780,9 @@ run_rmd("code/child_resent.Rmd")
 ```{r class.source = 'fold-show'}
 anes_sub <-
     filter(anes,
-
+           
            faminc_terc == "1st", race == "white",
-
+           
            year %in% robust_years, !is.na(racialres)
     )
 
@@ -746,9 +798,9 @@ run_rmd("code/child_resent.Rmd")
 ```{r}
 anes_sub <-
     filter(anes,
-
+           
            race == "white",
-
+           
            year %in% c(2012, 2020), !is.na(racialres)
     )
 
@@ -816,21 +868,21 @@ white_res_hyp1216 <-
     full_join(resdf, hypdf %>% select(-year, -net_rep),
               by = setdiff(id_cols, "year"),
               suffix = c("", "_hyp")
-              ) %>%
+    ) %>%
     # Compute hypothetical net Republican votes
     mutate(
         net_rep_hyp_prob = (cond_rep)     * prob_hyp,
         net_rep_hyp_tvc  = (cond_rep_hyp) * prob
-
+        
     ) %>%
-
+    
     # Bind to actual results from hypdf for vb_difference
     bind_rows(
-            mutate(hypdf,
-                   # actual 2012 estimates in same col name for vb_difference
-                   net_rep_hyp_prob = net_rep,
-                   net_rep_hyp_tvc  = net_rep),
-            .  )
+        mutate(hypdf,
+               # actual 2012 estimates in same col name for vb_difference
+               net_rep_hyp_prob = net_rep,
+               net_rep_hyp_tvc  = net_rep),
+        .  )
 
 ```
 
@@ -839,43 +891,43 @@ Repeat year-to-year differences and binned summaries for the actual `net_rep` an
 white_res_diff_hyp1216 <-
     vb_difference(white_res_hyp1216,
                   estimates = grep("net_rep", names(white_res_hyp1216),
-                                  value = TRUE)) %>%
-
+                                   value = TRUE)) %>%
+    
     # Bin into quintiles
     mutate(
         racialres5 =
-               cut(racialres, include.lowest = TRUE,
-                   breaks =
-                       c(
-                           min(racialres, na.rm = TRUE),
-                           rr_2012_quintile,
-                           max(racialres, na.rm = TRUE)
-                       ),
-                   labels = FALSE)
-        )
+            cut(racialres, include.lowest = TRUE,
+                breaks =
+                    c(
+                        min(racialres, na.rm = TRUE),
+                        rr_2012_quintile,
+                        max(racialres, na.rm = TRUE)
+                    ),
+                labels = FALSE)
+    )
 
 white_res_diff_sum_hyp1216 <-
-  white_res_diff_hyp1216 %>% 
-  split(., .$comp) %>% 
-  lapply(
-    function(comp_df)
-      vb_summary(comp_df,
-                 estimates = grep("diff_", names(white_res_diff_hyp1216), 
-                                  value = TRUE),
-             funcs = c("mean", "low", "high"),
-             type = "binned", bin_col = "racialres5")
-  ) %>% 
-  bind_rows(.id = "comp")
-  
+    white_res_diff_hyp1216 %>% 
+    split(., .$comp) %>% 
+    lapply(
+        function(comp_df)
+            vb_summary(comp_df,
+                       estimates = grep("diff_", names(white_res_diff_hyp1216), 
+                                        value = TRUE),
+                       funcs = c("mean", "low", "high"),
+                       type = "binned", bin_col = "racialres5")
+    ) %>% 
+    bind_rows(.id = "comp")
+
 ```
 
 
 ```{r}
 # Format for table
 white_res_diff_sum_hyp1216 %>%
-
+    
     pivot_longer(cols = matches("net_rep")) %>%
-
+    
     mutate(
         estimate = gsub(".*(?=mean|low|high)", "", name, perl = TRUE),
         hypothetical =
@@ -888,7 +940,7 @@ white_res_diff_sum_hyp1216 %>%
     ) %>%
     pivot_wider(id_cols = c("comp", "hypothetical", "estimate"),
                 names_from = "racialres5") %>%
-
+    
     kable(digits = 3) %>% kable_styling()
 ```
 
@@ -931,39 +983,39 @@ Here we set up the combination of years and weight columns to use when estimatin
 ```{r class.source = 'fold-show'}
 voter_res_yrwt <-
     tribble(
-    ~ year,       ~ weight_col,
-      "2012",     "weight_genpop_2020Nov",
-      "2016",     "weight_genpop_2020Nov",
-
-      "2012",     "weight_genpop_2020Nov",
-      "2020",     "weight_genpop_2020Nov",
-
-    # Extra for sensitivity analysis
-      "2012",     "weight_genpop_2016",
-      "2016",     "weight_genpop_2016",
-
-      "2012",     "weight_genpop_2017",
-      "2016",     "weight_genpop_2017",
-
-      "2012",    "weight_genpop_2019Nov",
-      "2016",    "weight_genpop_2019Nov",
-    
-      "2012",     "weight_genpop_2018",
-      "2016",     "weight_genpop_2018",
-
-      "2012",     "weight_genpop_2019Jan",
-      "2016",     "weight_genpop_2019Jan",
-
-      "2012",     "weight_genpop_2020Sep",
-      "2020",     "weight_genpop_2020Sep",
-
-      
-      "2012",    "weight_genpop_2019Nov",
-      "2020",    "weight_genpop_2019Nov",
-
-      "2012",     "weight_genpop_2016",
-      "2020",     "weight_genpop_2020Nov",
-
+        ~ year,       ~ weight_col,
+        "2012",     "weight_genpop_2020Nov",
+        "2016",     "weight_genpop_2020Nov",
+        
+        "2012",     "weight_genpop_2020Nov",
+        "2020",     "weight_genpop_2020Nov",
+        
+        # Extra for sensitivity analysis
+        "2012",     "weight_genpop_2016",
+        "2016",     "weight_genpop_2016",
+        
+        "2012",     "weight_genpop_2017",
+        "2016",     "weight_genpop_2017",
+        
+        "2012",    "weight_genpop_2019Nov",
+        "2016",    "weight_genpop_2019Nov",
+        
+        "2012",     "weight_genpop_2018",
+        "2016",     "weight_genpop_2018",
+        
+        "2012",     "weight_genpop_2019Jan",
+        "2016",     "weight_genpop_2019Jan",
+        
+        "2012",     "weight_genpop_2020Sep",
+        "2020",     "weight_genpop_2020Sep",
+        
+        
+        "2012",    "weight_genpop_2019Nov",
+        "2020",    "weight_genpop_2019Nov",
+        
+        "2012",     "weight_genpop_2016",
+        "2020",     "weight_genpop_2020Nov",
+        
     )
 ```
 
@@ -979,13 +1031,13 @@ voter <-
         names_pattern = "pvote_(\\d{2})_recode",
         values_to = "vote_pres3"
     ) %>%
-# Create separate turnout column, party-specific vote choice columns
+    # Create separate turnout column, party-specific vote choice columns
     mutate(
         year = paste0("20", year),
         voted = as.numeric(vote_pres3 != 0),
         vote_pres_dem = as.numeric(vote_pres3 == -1),
         vote_pres_rep = as.numeric(vote_pres3 ==  1)
-        )
+    )
 ```
 
 
@@ -1000,10 +1052,10 @@ voter_rr_quintile <-
     voter_wide$weight_genpop_2020Nov %>%
     na.omit() %>%
     {
-      wtd_quantile(voter_wide$rr[ - ( attributes(.)$na.action ) ],
-                   w = .,
-                   probs  = seq(0.2, 0.8, 0.2),
-                   na.rm = TRUE)
+        wtd_quantile(voter_wide$rr[ - ( attributes(.)$na.action ) ],
+                     w = .,
+                     probs  = seq(0.2, 0.8, 0.2),
+                     na.rm = TRUE)
     }
 ```
 
@@ -1030,29 +1082,29 @@ voter_split <- split(voter, voter$year)
 voter_res_df <-
     rowwise(voter_res_yrwt) %>%
     mutate(
-           vbdf =
-               list(
-                   vb_continuous(
-                       data =
-                           voter_split[[year]] %>%
-                           drop_na(all_of(c(keep_cols, weight_col))),
-
-                       weight = weight_col,
-                       indep = "rr",
-                       dv_turnout = "voted",
-                       dv_vote3 = "vote_pres3",
-
-                      # Same range to set estimation points for all years
-                      min_val = min_rr_voter,
-                      max_val = max_rr_voter,
-
-                       boot_iters = boot_iters
-                   ) %>%
-                       # Rescale by proportion white in population
-                       mutate(prob = prob * prop_white,
-                              net_rep = net_rep * prop_white)
-               )
-           )
+        vbdf =
+            list(
+                vb_continuous(
+                    data =
+                        voter_split[[year]] %>%
+                        drop_na(all_of(c(keep_cols, weight_col))),
+                    
+                    weight = weight_col,
+                    indep = "rr",
+                    dv_turnout = "voted",
+                    dv_vote3 = "vote_pres3",
+                    
+                    # Same range to set estimation points for all years
+                    min_val = min_rr_voter,
+                    max_val = max_rr_voter,
+                    
+                    boot_iters = boot_iters
+                ) %>%
+                    # Rescale by proportion white in population
+                    mutate(prob = prob * prop_white,
+                           net_rep = net_rep * prop_white)
+            )
+    )
 
 
 names(voter_res_df$vbdf) <-
@@ -1069,52 +1121,52 @@ voter_res_list <-
             list("(2012||weight_genpop_2016)" = voter_res_df$vbdf[["(2012||weight_genpop_2016)"]],
                  "(2016||weight_genpop_2016)" = voter_res_df$vbdf[["(2016||weight_genpop_2016)"]]),
             .id = "year||wt"
-            ),
-
+        ),
+        
         # Comparing 2020-2012
         bind_rows(
             list("(2012||weight_genpop_2016)" = voter_res_df$vbdf[["(2012||weight_genpop_2016)"]],
                  "(2020||weight_genpop_2020Nov)" = voter_res_df$vbdf[["(2020||weight_genpop_2020Nov)"]]),
             .id = "year||wt"
-            ),
+        ),
         ### WEIGHT SENSITIVITY ###
         # More weight choices (2016)
         bind_rows(
             list("(2012||weight_genpop_2017)" = voter_res_df$vbdf[["(2012||weight_genpop_2017)"]],
                  "(2016||weight_genpop_2017)" = voter_res_df$vbdf[["(2016||weight_genpop_2017)"]]),
             .id = "year||wt"
-            ),
+        ),
         bind_rows(
             list("(2012||weight_genpop_2018)" = voter_res_df$vbdf[["(2012||weight_genpop_2018)"]],
                  "(2016||weight_genpop_2018)" = voter_res_df$vbdf[["(2016||weight_genpop_2018)"]]),
             .id = "year||wt"
-            ),
+        ),
         bind_rows(
             list("(2012||weight_genpop_2019Jan)" = voter_res_df$vbdf[["(2012||weight_genpop_2019Jan)"]],
                  "(2016||weight_genpop_2019Jan)" = voter_res_df$vbdf[["(2016||weight_genpop_2019Jan)"]]),
             .id = "year||wt"
-            ),
+        ),
         bind_rows(
             list("(2012||weight_genpop_2019Nov)" = voter_res_df$vbdf[["(2012||weight_genpop_2019Nov)"]],
                  "(2016||weight_genpop_2019Nov)" = voter_res_df$vbdf[["(2016||weight_genpop_2019Nov)"]]),
             .id = "year||wt"
-            ),
+        ),
         # More weight choices (2020)
         bind_rows(
             list("(2012||weight_genpop_2020Sep)" = voter_res_df$vbdf[["(2012||weight_genpop_2020Sep)"]],
                  "(2020||weight_genpop_2020Sep)" = voter_res_df$vbdf[["(2020||weight_genpop_2020Sep)"]]),
             .id = "year||wt"
-            ),
+        ),
         bind_rows(
             list("(2012||weight_genpop_2020Nov)" = voter_res_df$vbdf[["(2012||weight_genpop_2020Nov)"]],
                  "(2020||weight_genpop_2020Nov)" = voter_res_df$vbdf[["(2020||weight_genpop_2020Nov)"]]),
             .id = "year||wt"
-            ),
+        ),
         bind_rows(
             list("(2012||weight_genpop_2019Nov)" = voter_res_df$vbdf[["(2012||weight_genpop_2019Nov)"]],
                  "(2020||weight_genpop_2019Nov)" = voter_res_df$vbdf[["(2020||weight_genpop_2019Nov)"]]),
             .id = "year||wt"
-            )
+        )
     )
 ```
 
@@ -1122,30 +1174,30 @@ voter_res_list <-
 ```{r}
 voter_res_diff_sum_list <-
     lapply(voter_res_list,
-
+           
            \(vbdf)
            # Calculate comparison
            vb_difference(vbdf, estimates = "net_rep", sort_col = "year||wt") %>%
-
+               
                # Break rr values into quintiles
                mutate(racialres5 = cut(rr, include.lowest = TRUE,
-                                   breaks =
-                                       c(
-                                           min(rr, na.rm = TRUE),
-                                           voter_rr_quintile,
-                                           max(rr, na.rm = TRUE)
-                                       ),
-                                   labels = FALSE)
+                                       breaks =
+                                           c(
+                                               min(rr, na.rm = TRUE),
+                                               voter_rr_quintile,
+                                               max(rr, na.rm = TRUE)
+                                           ),
+                                       labels = FALSE)
                ) %>%
-
+               
                # Summarize uncertainty
                split(., .$comp) %>% 
                lapply(
-                 function(x) vb_summary(x, type = "binned", estimates = "diff_net_rep", bin_col = "racialres5")
+                   function(x) vb_summary(x, type = "binned", estimates = "diff_net_rep", bin_col = "racialres5")
                ) %>% 
                bind_rows(.id = "comp")
-               
-           )
+           
+    )
 ```
 
 
@@ -1181,41 +1233,41 @@ The `table` environment, caption, and labels will stay in the main article's .te
 
 ```{r}
 make_table <- function(results, name, cov = "racialres5"){
-
+    
     require(dplyr)
     require(tidyr)
-  
-  results <- filter(results, !is.na(get(cov)))
-
-  dfres <-
-    results %>% 
-    pivot_longer(cols = matches("diff_net_rep")) %>%
-    mutate(estimate = gsub("diff_net_rep_(rescale_)?", "", name),
-           name = NULL, boot_iters = NULL) %>%
-    mutate(value = round(value, 3)) %>%
-    pivot_wider(id_cols = c("comp", "estimate"), values_from = "value",
-                names_from = cov) %>%
-    filter(grepl("mean|low|high", estimate))
-
-  cov_vals <- as.character(results[[cov]])
-
-  mean_row <-
-    filter(dfres, grepl("mean", estimate)) %>%
-    select(all_of(cov_vals)) %>% unlist() %>%
-    paste(collapse = " & ") %>%
-    paste(name, " & ", ., "\\\\")
-
-  ci_row <-
-    sprintf("[%s, %s]",
-          filter(dfres, grepl("low", estimate)) %>% select(cov_vals) %>%
-            unlist(),
-          filter(dfres, grepl("high", estimate)) %>% select(cov_vals) %>%
-            unlist()
-          ) %>%
-    paste(collapse = " & ") %>%
-    paste(dfres$comp[1], ., sep = " & ") %>%
-    paste("\\\\")
-
+    
+    results <- filter(results, !is.na(get(cov)))
+    
+    dfres <-
+        results %>% 
+        pivot_longer(cols = matches("diff_net_rep")) %>%
+        mutate(estimate = gsub("diff_net_rep_(rescale_)?", "", name),
+               name = NULL, boot_iters = NULL) %>%
+        mutate(value = round(value, 3)) %>%
+        pivot_wider(id_cols = c("comp", "estimate"), values_from = "value",
+                    names_from = cov) %>%
+        filter(grepl("mean|low|high", estimate))
+    
+    cov_vals <- as.character(results[[cov]])
+    
+    mean_row <-
+        filter(dfres, grepl("mean", estimate)) %>%
+        select(all_of(cov_vals)) %>% unlist() %>%
+        paste(collapse = " & ") %>%
+        paste(name, " & ", ., "\\\\")
+    
+    ci_row <-
+        sprintf("[%s, %s]",
+                filter(dfres, grepl("low", estimate)) %>% select(cov_vals) %>%
+                    unlist(),
+                filter(dfres, grepl("high", estimate)) %>% select(cov_vals) %>%
+                    unlist()
+        ) %>%
+        paste(collapse = " & ") %>%
+        paste(dfres$comp[1], ., sep = " & ") %>%
+        paste("\\\\")
+    
     out  <- paste(mean_row, ci_row, "\\hline", sep = " \n ")
     return(out)
 }
@@ -1226,18 +1278,18 @@ make_table <- function(results, name, cov = "racialres5"){
 tables <- list()
 
 table_footer <-
-paste(
-"\\hline
+    paste(
+        "\\hline
 \\end{tabular}
 % bootstrap resamples:", boot_iters
-)
+    )
 ```
 
 ## Main table
 
 ```{r results ="asis"}
 main_header <-
-"\\begin{tabular}{l|ccccc}
+    "\\begin{tabular}{l|ccccc}
 \\hline\\hline
       & \\multicolumn{5}{c}{Quintile of Racial Resentment} \\\\
 Group & First & Second & Third & Fourth & Fifth \\\\
@@ -1246,11 +1298,11 @@ Group & First & Second & Third & Fourth & Fifth \\\\
 tables$main <-
     c(
         main_header,
-
+        
         filter(white_res_diff_bin5sum, comp == "2016-2012") %>%
             make_table(name = "White"),
-            sapply(names(robust_results), \(nm) make_table(robust_results[[nm]], nm)),
-
+        sapply(names(robust_results), \(nm) make_table(robust_results[[nm]], nm)),
+        
         table_footer
     ) %>% unname()
 
@@ -1266,7 +1318,7 @@ write(tables$main, "docs/tables/table_main.tex")
 
 ```{r results ="asis"}
 hyp_header <-
-"\\begin{tabular}{l|ccccc}
+    "\\begin{tabular}{l|ccccc}
 \\hline\\hline
               & \\multicolumn{5}{c}{Quintile of Racial Resentment} \\\\
 Hypothetical  & First & Second & Third & Fourth & Fifth\\\\
@@ -1274,17 +1326,17 @@ Hypothetical  & First & Second & Third & Fourth & Fifth\\\\
 
 tables$hyp  <-
     c(
-    hyp_header,
-
-    white_res_diff_sum_hyp1216 %>%
-        select(comp, racialres5, matches("hyp_prob")) %>%
-        make_table("Fixed Composition"),
-
-    white_res_diff_sum_hyp1216 %>%
-        select(comp, racialres5, matches("hyp_tvc")) %>%
-        make_table("Fixed Turnout + Vote Choice"),
-
-    table_footer
+        hyp_header,
+        
+        white_res_diff_sum_hyp1216 %>%
+            select(comp, racialres5, matches("hyp_prob")) %>%
+            make_table("Fixed Composition"),
+        
+        white_res_diff_sum_hyp1216 %>%
+            select(comp, racialres5, matches("hyp_tvc")) %>%
+            make_table("Fixed Turnout + Vote Choice"),
+        
+        table_footer
     )
 
 cat(tables$hyp)
@@ -1297,7 +1349,7 @@ write(tables$hyp, "docs/tables/table_hyp.tex")
 voter_res_diff_sum <- bind_rows(voter_res_diff_sum_list)
 
 panel_header <-
-"\\begin{tabular}{l|ccccc}
+    "\\begin{tabular}{l|ccccc}
 \\hline \\hline
         & \\multicolumn{5}{c}{Quintile} \\\\
         & First & Second & Third & Fourth & Fifth \\\\
@@ -1305,19 +1357,19 @@ panel_header <-
 
 tables$panel <-
     c(
-      panel_header,
-
-      voter_res_diff_sum %>%
-      filter(comp == "(2016||weight_genpop_2016)-(2012||weight_genpop_2016)") %>%
-      mutate(comp = "2016-2012") %>% distinct() %>%
-      make_table(name = "Panel"),
-
-      voter_res_diff_sum %>%
-      filter(comp == "(2020||weight_genpop_2020Nov)-(2012||weight_genpop_2016)") %>%
-      mutate(comp = "2020-2012") %>%
-      make_table(name = "Panel"),
-
-      table_footer
+        panel_header,
+        
+        voter_res_diff_sum %>%
+            filter(comp == "(2016||weight_genpop_2016)-(2012||weight_genpop_2016)") %>%
+            mutate(comp = "2016-2012") %>% distinct() %>%
+            make_table(name = "Panel"),
+        
+        voter_res_diff_sum %>%
+            filter(comp == "(2020||weight_genpop_2020Nov)-(2012||weight_genpop_2016)") %>%
+            mutate(comp = "2020-2012") %>%
+            make_table(name = "Panel"),
+        
+        table_footer
     )
 
 cat(tables$panel)
@@ -1329,7 +1381,7 @@ write(tables$panel, "docs/tables/table_panel.tex")
 ### Binned summary, binned analysis
 ```{r}
 bins_header <-
-"\\begin{tabular}{l|ccccc}
+    "\\begin{tabular}{l|ccccc}
 \\hline\\hline
       & \\multicolumn{5}{c}{Quartile / Quintile} \\\\
 Group & First & Second & Third & Fourth & Fifth \\\\
@@ -1337,19 +1389,19 @@ Group & First & Second & Third & Fourth & Fifth \\\\
 
 tables$bins <-
     c(
-    bins_header,
-
-    filter(white_res_diff_bin5sum, comp == "2016-2012") %>%
-        make_table(name = "White Quintile Summary"),
-    filter(white_resbin5_diff_sum, comp == "2016-2012") %>%
-        make_table(name = "White 5-bin RR", cov = "racialres_bin5"),
-
-    filter(white_res_diff_bin4sum, comp == "2016-2012") %>%
-        make_table(name = "White Quartile Summary", cov = "racialres4"),
-    filter(white_resbin4_diff_sum, comp == "2016-2012") %>%
-        make_table(name = "White 4-bin RR", cov = "racialres_bin4"),
-
-    table_footer
+        bins_header,
+        
+        filter(white_res_diff_bin5sum, comp == "2016-2012") %>%
+            make_table(name = "White Quintile Summary"),
+        filter(white_resbin5_diff_sum, comp == "2016-2012") %>%
+            make_table(name = "White 5-bin RR", cov = "racialres_bin5"),
+        
+        filter(white_res_diff_bin4sum, comp == "2016-2012") %>%
+            make_table(name = "White Quartile Summary", cov = "racialres4"),
+        filter(white_resbin4_diff_sum, comp == "2016-2012") %>%
+            make_table(name = "White 4-bin RR", cov = "racialres_bin4"),
+        
+        table_footer
     )
 
 cat(tables$bins)
@@ -1362,7 +1414,7 @@ write(tables$bins, "docs/tables/table_bins.tex")
 ### 2016--2012
 ```{r results = "asis"}
 weights_header <-
-"\\begin{tabular}{l|ccccc}
+    "\\begin{tabular}{l|ccccc}
 \\hline\\hline
       & \\multicolumn{5}{c}{Quintile} \\\\
 Weights & First & Second & Third & Fourth & Fifth \\\\
@@ -1375,19 +1427,19 @@ weights_results1612 <-
     filter(grepl("^\\(2016\\|\\|", comp))
 
 tables$weights1612 <-
-
-  weights_results1612 %>%
-
-  mutate(comp = gsub("[^-]+(\\d{4})(\\w{3})?", "\\1 \\2", comp) %>%
-                gsub(" ?\\)", "", .)) %>%
-  mutate(across(where(is.numeric), round, 3)) %>%
-  split(., rep(1:(nrow(weights_results1612)/5), each = 5, length.out = nrow(voter_res_diff_sum))) %>%
-  unname() %>%
-  sapply(make_table, name = "Gen Pop") %>%
-
-  c(weights_header,
-    .,
-    table_footer)
+    
+    weights_results1612 %>%
+    
+    mutate(comp = gsub("[^-]+(\\d{4})(\\w{3})?", "\\1 \\2", comp) %>%
+               gsub(" ?\\)", "", .)) %>%
+    mutate(across(where(is.numeric), round, 3)) %>%
+    split(., rep(1:(nrow(weights_results1612)/5), each = 5, length.out = nrow(voter_res_diff_sum))) %>%
+    unname() %>%
+    sapply(make_table, name = "Gen Pop") %>%
+    
+    c(weights_header,
+      .,
+      table_footer)
 
 cat(tables$weights1612)
 write(tables$weights1612, "docs/tables/table_weights1612.tex")
@@ -1400,19 +1452,19 @@ weights_results2016 <-
     filter(grepl("^\\(2020\\|\\|", comp))
 
 tables$weights2016 <-
-
-  weights_results2016 %>%
-
-  mutate(comp = gsub("[^-]+(\\d{4})(\\w{3})?", "\\1 \\2", comp) %>%
-                gsub(" ?\\)", "", .)) %>%
-  mutate(across(where(is.numeric), round, 3)) %>%
-  split(., rep(1:(nrow(weights_results2016)/5), each = 5, length.out = nrow(voter_res_diff_sum))) %>%
-  unname() %>%
-  sapply(make_table, name = "Gen Pop") %>%
-
-  c(weights_header,
-    .,
-    table_footer)
+    
+    weights_results2016 %>%
+    
+    mutate(comp = gsub("[^-]+(\\d{4})(\\w{3})?", "\\1 \\2", comp) %>%
+               gsub(" ?\\)", "", .)) %>%
+    mutate(across(where(is.numeric), round, 3)) %>%
+    split(., rep(1:(nrow(weights_results2016)/5), each = 5, length.out = nrow(voter_res_diff_sum))) %>%
+    unname() %>%
+    sapply(make_table, name = "Gen Pop") %>%
+    
+    c(weights_header,
+      .,
+      table_footer)
 
 cat(tables$weights2016)
 write(tables$weights2016, "docs/tables/table_weights2016.tex")

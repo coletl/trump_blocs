@@ -295,16 +295,16 @@ p_grid_legend
 
 
 ```{r}
-ggsave(p_grid_legend, file = "docs/figures/fig1.eps", 
+ggsave(p_grid_legend, file = "docs/figures/fig2.eps", 
        height = 6, width = 10)
 
-ggsave(p_netrep, file = "docs/figures/fig2.eps",
+ggsave(p_netrep, file = "docs/figures/fig1.eps",
        height = 6, width = 10)
 
-ggsave(p_grid_legend, file = "docs/figures/fig1.pdf", 
+ggsave(p_grid_legend, file = "docs/figures/fig2.pdf", 
        height = 6, width = 10)
 
-ggsave(p_netrep, file = "docs/figures/fig2.pdf",
+ggsave(p_netrep, file = "docs/figures/fig1.pdf",
        height = 6, width = 10)
 
 
